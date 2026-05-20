@@ -1,0 +1,297 @@
+/**
+ * JSON 转 ArkTS Model 转换器
+ */
+class JsonToArkTSConverter {
+    constructor() {
+        this.generatedClasses = new Map(); // 存储已生成的类定义
+        this.classOrder = []; // 记录类生成顺序
+    }
+
+    /**
+     * 转换 JSON 到 ArkTS Model
+     * @param {string} jsonStr - JSON 字符串
+     * @returns {string} - ArkTS Model 代码
+     */
+    convert(jsonStr) {
+        try {
+            this.generatedClasses.clear();
+            this.classOrder = [];
+            
+            const jsonObj = JSON.parse(jsonStr);
+            
+            // 检查是否为空对象
+            if (Object.keys(jsonObj).length === 0) {
+                throw new Error('JSON 对象为空');
+            }
+            
+            // 直接处理整个 JSON 对象，将其作为一个根对象
+            // 使用第一个 key 作为类名（保持原始大小写）
+            const firstKey = Object.keys(jsonObj)[0];
+            
+            // 如果只有一个根键且其值是对象，使用该键作为类名
+            if (Object.keys(jsonObj).length === 1) {
+                const value = jsonObj[firstKey];
+                if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                    // 标准情况：{ "User": { "name": "...", ... } }
+                    this.processObject(value, firstKey);
+                } else {
+                    // 非标准情况：{ "code": "200" } -> 创建一个包含该字段的类
+                    this.processObject(jsonObj, this.generateDefaultClassName(jsonObj));
+                }
+            } else {
+                // 多个根键：{ "name": "...", "age": 20 } -> 创建一个类包含所有字段
+                this.processObject(jsonObj, this.generateDefaultClassName(jsonObj));
+            }
+            
+            // 生成最终代码
+            return this.generateFinalCode();
+            
+        } catch (error) {
+            throw new Error(`JSON 解析失败: ${error.message}`);
+        }
+    }
+
+    /**
+     * 生成默认类名
+     * @param {Object} obj - JSON 对象
+     * @returns {string} - 类名
+     */
+    generateDefaultClassName(obj) {
+        // 使用第一个 key 的首字母大写作为类名
+        const firstKey = Object.keys(obj)[0];
+        return this.capitalizeFirstLetter(firstKey);
+    }
+
+    /**
+     * 处理对象，生成类定义
+     * @param {Object} obj - 要处理的对象
+     * @param {string} className - 类名
+     * @returns {string} - 类名
+     */
+    processObject(obj, className) {
+        if (this.generatedClasses.has(className)) {
+            return className;
+        }
+
+        const fields = [];
+        const fieldNames = Object.keys(obj).sort(); // 按字母顺序排序
+
+        fieldNames.forEach(fieldName => {
+            const value = obj[fieldName];
+            const fieldType = this.getFieldType(value, fieldName);
+            fields.push({
+                name: fieldName,
+                type: fieldType.type,
+                typeName: fieldType.typeName,
+                isOptional: fieldType.isOptional,
+                defaultValue: fieldType.defaultValue
+            });
+        });
+
+        this.generatedClasses.set(className, fields);
+        this.classOrder.push(className);
+        
+        return className;
+    }
+
+    /**
+     * 获取字段类型信息
+     * @param {any} value - 字段值
+     * @param {string} fieldName - 字段名
+     * @returns {Object} - 类型信息
+     */
+    getFieldType(value, fieldName) {
+        if (value === null || value === undefined) {
+            // null 或 undefined 作为字符串处理
+            return {
+                type: 'String',
+                typeName: 'string',
+                isOptional: false,
+                defaultValue: "''"
+            };
+        }
+
+        const type = typeof value;
+
+        // 字符串类型
+        if (type === 'string') {
+            return {
+                type: 'String',
+                typeName: 'string',
+                isOptional: false,
+                defaultValue: "''"
+            };
+        }
+
+        // 数字类型
+        if (type === 'number') {
+            return {
+                type: 'Number',
+                typeName: 'number',
+                isOptional: false,
+                defaultValue: '0'
+            };
+        }
+
+        // 布尔类型
+        if (type === 'boolean') {
+            return {
+                type: 'Boolean',
+                typeName: 'boolean',
+                isOptional: false,
+                defaultValue: 'false'
+            };
+        }
+
+        // 数组类型
+        if (Array.isArray(value)) {
+            if (value.length === 0) {
+                // 空数组，默认为字符串数组
+                return {
+                    type: 'String',
+                    typeName: 'string[]',
+                    isOptional: false,
+                    defaultValue: '[]'
+                };
+            }
+
+            const firstElement = value[0];
+            const elementType = typeof firstElement;
+
+            if (elementType === 'string') {
+                return {
+                    type: 'String',
+                    typeName: 'string[]',
+                    isOptional: false,
+                    defaultValue: '[]'
+                };
+            }
+
+            if (elementType === 'number') {
+                return {
+                    type: 'Number',
+                    typeName: 'number[]',
+                    isOptional: false,
+                    defaultValue: '[]'
+                };
+            }
+
+            if (elementType === 'boolean') {
+                return {
+                    type: 'Boolean',
+                    typeName: 'boolean[]',
+                    isOptional: false,
+                    defaultValue: '[]'
+                };
+            }
+
+            if (elementType === 'object' && firstElement !== null) {
+                // 对象数组
+                const nestedClassName = this.capitalizeFirstLetter(fieldName.replace(/s$/, '')); // 移除末尾的 s
+                this.processObject(firstElement, nestedClassName);
+                return {
+                    type: nestedClassName,
+                    typeName: `${nestedClassName}[]`,
+                    isOptional: false,
+                    defaultValue: '[]'
+                };
+            }
+
+            // 默认为字符串数组
+            return {
+                type: 'String',
+                typeName: 'string[]',
+                isOptional: false,
+                defaultValue: '[]'
+            };
+        }
+
+        // 对象类型（嵌套对象）
+        if (type === 'object') {
+            const nestedClassName = this.capitalizeFirstLetter(fieldName);
+            this.processObject(value, nestedClassName);
+            return {
+                type: nestedClassName,
+                typeName: nestedClassName,
+                isOptional: true, // 嵌套对象为可选
+                defaultValue: 'undefined'
+            };
+        }
+
+        // 默认类型
+        return {
+            type: 'String',
+            typeName: 'string',
+            isOptional: false,
+            defaultValue: "''"
+        };
+    }
+
+    /**
+     * 首字母大写（帕斯卡命名法）
+     * @param {string} str - 原始字符串
+     * @returns {string} - 首字母大写的字符串
+     */
+    capitalizeFirstLetter(str) {
+        if (!str) return str;
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+
+    /**
+     * 生成类的代码
+     * @param {string} className - 类名
+     * @param {Array} fields - 字段列表
+     * @returns {string} - 类代码
+     */
+    generateClassCode(className, fields) {
+        let code = `export class ${className} {\n`;
+
+        fields.forEach((field, index) => {
+            const { name, type, typeName, isOptional, defaultValue } = field;
+            
+            // 添加装饰器
+            code += `  @Type(() => ${type})\n`;
+            code += `  @Transform((params) => params.value ?? ${defaultValue})\n`;
+            
+            // 添加字段定义
+            if (isOptional) {
+                code += `  ${name}?: ${typeName};\n`;
+            } else {
+                code += `  ${name}: ${typeName} = ${defaultValue};\n`;
+            }
+            
+            // 只在非最后一个字段后添加空行
+            if (index < fields.length - 1) {
+                code += '\n';
+            }
+        });
+
+        code += '}\n';
+        return code;
+    }
+
+    /**
+     * 生成最终代码
+     * @returns {string} - 完整的 ArkTS 代码
+     */
+    generateFinalCode() {
+        let code = "import { Type, Transform } from 'class-transformer';\n\n";
+
+        // 按生成顺序的反序输出类（嵌套类在前，根类在后）
+        const reversedOrder = [...this.classOrder].reverse();
+        
+        reversedOrder.forEach((className, index) => {
+            const fields = this.generatedClasses.get(className);
+            code += this.generateClassCode(className, fields);
+            
+            if (index < reversedOrder.length - 1) {
+                code += '\n';
+            }
+        });
+
+        return code;
+    }
+}
+
+// 导出转换器实例
+window.JsonToArkTSConverter = JsonToArkTSConverter;

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON 转 ArkTS Model</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>JSON 转 ArkTS Model 工具</h1>
+        
+        <div class="content">
+            <div class="input-section">
+                <h2>JSON 输入</h2>
+                <textarea id="jsonInput" placeholder="请输入 JSON 内容..."></textarea>
+            </div>
+            
+            <div class="button-section">
+                <button id="convertBtn" class="convert-btn">转换</button>
+            </div>
+            
+            <div class="output-section">
+                <h2>ArkTS Model 输出</h2>
+                <textarea id="arktsOutput" placeholder="转换结果将显示在这里..." readonly></textarea>
+            </div>
+        </div>
+    </div>
+    
+    <script src="converter.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
