@@ -272,24 +272,26 @@ class JsonToArkTSConverter {
 
     /**
      * 生成最终代码
-     * @returns {string} - 完整的 ArkTS 代码
+     * @returns {Object} - 包含导入语句和类列表的对象
      */
     generateFinalCode() {
-        let code = "import { Type, Transform } from 'class-transformer';\n\n";
-
+        const importStatement = "import { Type, Transform } from 'class-transformer';";
+        
         // 按生成顺序的反序输出类（嵌套类在前，根类在后）
         const reversedOrder = [...this.classOrder].reverse();
         
-        reversedOrder.forEach((className, index) => {
+        const classes = reversedOrder.map(className => {
             const fields = this.generatedClasses.get(className);
-            code += this.generateClassCode(className, fields);
-            
-            if (index < reversedOrder.length - 1) {
-                code += '\n';
-            }
+            return {
+                name: className,
+                code: this.generateClassCode(className, fields)
+            };
         });
 
-        return code;
+        return {
+            importStatement,
+            classes
+        };
     }
 }
 
