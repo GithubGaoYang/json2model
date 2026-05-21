@@ -78,7 +78,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const content = document.createElement('div');
         content.className = 'code-content';
-        content.textContent = code;
+        
+        // 创建 pre 和 code 元素用于语法高亮
+        const pre = document.createElement('pre');
+        const codeEl = document.createElement('code');
+        codeEl.className = 'language-typescript';
+        codeEl.textContent = code;
+        
+        pre.appendChild(codeEl);
+        content.appendChild(pre);
+        
+        // 应用语法高亮
+        if (window.hljs) {
+            hljs.highlightElement(codeEl);
+        }
 
         block.appendChild(header);
         block.appendChild(content);

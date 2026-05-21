@@ -145,13 +145,30 @@ textarea#arktsOutput {
 }
 
 .code-content {
-    padding: 16px;
+    padding: 0;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 14px;
     line-height: 1.6;
     color: #333;
-    white-space: pre;
     overflow-x: auto;
+}
+
+.code-content pre {
+    margin: 0;
+    padding: 16px;
+    background-color: #fafafa !important;
+}
+
+.code-content code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+/* 覆盖 highlight.js 的默认样式 */
+.code-content .hljs {
+    background-color: #fafafa !important;
+    padding: 0 !important;
 }
 
 .button-section {
