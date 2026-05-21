@@ -404,7 +404,14 @@ class JsonToSwiftConverter {
             fields.push({
                 name: fieldName,
                 type: fieldType.type,
-                isOptional: fieldType.isOptional
+                defaultValue: fieldType.defaultValue,
+                jsonMethod: fieldType.jsonMethod,
+                isArray: fieldType.isArray,
+                isObjectArray: fieldType.isObjectArray,
+                isNestedObject: fieldType.isNestedObject,
+                elementType: fieldType.elementType,
+                elementJsonMethod: fieldType.elementJsonMethod,
+                nestedClassName: fieldType.nestedClassName
             });
         });
 
@@ -424,8 +431,9 @@ class JsonToSwiftConverter {
         if (value === null || value === undefined) {
             // null 或 undefined 作为可选字符串处理
             return {
-                type: 'String?',
-                isOptional: true
+                type: 'String',
+                defaultValue: '""',
+                jsonMethod: 'stringValue'
             };
         }
 
@@ -435,7 +443,8 @@ class JsonToSwiftConverter {
         if (type === 'string') {
             return {
                 type: 'String',
-                isOptional: false
+                defaultValue: '""',
+                jsonMethod: 'stringValue'
             };
         }
 
@@ -444,7 +453,8 @@ class JsonToSwiftConverter {
             const isInteger = Number.isInteger(value);
             return {
                 type: isInteger ? 'Int' : 'Double',
-                isOptional: false
+                defaultValue: isInteger ? '0' : '0.0',
+                jsonMethod: isInteger ? 'intValue' : 'doubleValue'
             };
         }
 
@@ -452,7 +462,8 @@ class JsonToSwiftConverter {
         if (type === 'boolean') {
             return {
                 type: 'Bool',
-                isOptional: false
+                defaultValue: 'false',
+                jsonMethod: 'boolValue'
             };
         }
 
@@ -462,7 +473,11 @@ class JsonToSwiftConverter {
                 // 空数组，默认为字符串数组
                 return {
                     type: '[String]',
-                    isOptional: false
+                    defaultValue: '[String]()',
+                    jsonMethod: 'arrayValue',
+                    isArray: true,
+                    elementType: 'String',
+                    elementJsonMethod: 'stringValue'
                 };
             }
 
@@ -472,22 +487,35 @@ class JsonToSwiftConverter {
             if (elementType === 'string') {
                 return {
                     type: '[String]',
-                    isOptional: false
+                    defaultValue: '[String]()',
+                    jsonMethod: 'arrayValue',
+                    isArray: true,
+                    elementType: 'String',
+                    elementJsonMethod: 'stringValue'
                 };
             }
 
             if (elementType === 'number') {
                 const isInteger = Number.isInteger(firstElement);
+                const arrayType = isInteger ? 'Int' : 'Double';
                 return {
-                    type: isInteger ? '[Int]' : '[Double]',
-                    isOptional: false
+                    type: `[${arrayType}]`,
+                    defaultValue: `[${arrayType}]()`,
+                    jsonMethod: 'arrayValue',
+                    isArray: true,
+                    elementType: arrayType,
+                    elementJsonMethod: isInteger ? 'intValue' : 'doubleValue'
                 };
             }
 
             if (elementType === 'boolean') {
                 return {
                     type: '[Bool]',
-                    isOptional: false
+                    defaultValue: '[Bool]()',
+                    jsonMethod: 'arrayValue',
+                    isArray: true,
+                    elementType: 'Bool',
+                    elementJsonMethod: 'boolValue'
                 };
             }
 
@@ -498,14 +526,22 @@ class JsonToSwiftConverter {
                 this.processObject(firstElement, nestedClassName);
                 return {
                     type: `[${nestedClassName}]`,
-                    isOptional: false
+                    defaultValue: `[${nestedClassName}]()`,
+                    jsonMethod: 'arrayValue',
+                    isArray: true,
+                    isObjectArray: true,
+                    elementType: nestedClassName
                 };
             }
 
             // 默认为字符串数组
             return {
                 type: '[String]',
-                isOptional: false
+                defaultValue: '[String]()',
+                jsonMethod: 'arrayValue',
+                isArray: true,
+                elementType: 'String',
+                elementJsonMethod: 'stringValue'
             };
         }
 
@@ -515,14 +551,18 @@ class JsonToSwiftConverter {
             this.processObject(value, nestedClassName);
             return {
                 type: nestedClassName + '?',
-                isOptional: true
+                defaultValue: null,  // 嵌套对象不使用 = nil，而是用类型声明
+                jsonMethod: 'dictionaryValue',
+                isNestedObject: true,
+                nestedClassName: nestedClassName
             };
         }
 
         // 默认类型
         return {
             type: 'String',
-            isOptional: false
+            defaultValue: '""',
+            jsonMethod: 'stringValue'
         };
     }
 
@@ -569,38 +609,68 @@ class JsonToSwiftConverter {
     }
 
     /**
+     * 生成数组初始化代码
+     * @param {Object} field - 字段信息
+     * @param {string} fieldName - 字段名
+     * @returns {string} - 初始化代码
+     */
+    generateArrayInit(field, fieldName) {
+        if (field.isObjectArray) {
+            // 对象数组
+            return `${fieldName} = json["${field.name}"].arrayValue.compactMap { ${field.elementType}(json: $0) }`;
+        } else {
+            // 基础类型数组
+            return `${fieldName} = json["${field.name}"].arrayValue.map { $0.${field.elementJsonMethod} }`;
+        }
+    }
+
+    /**
      * 生成类的代码
      * @param {string} className - 类名
      * @param {Array} fields - 字段列表
      * @returns {string} - 类代码
      */
     generateClassCode(className, fields) {
-        let code = `struct ${className}: Codable {\n`;
+        let code = `struct ${className} {\n`;
 
-        fields.forEach((field, index) => {
-            const { name, type } = field;
-            const camelCaseName = this.toCamelCase(name);
-            
-            // 添加字段定义
-            code += `    let ${camelCaseName}: ${type}\n`;
-            
-            // 如果字段名不同，添加 CodingKeys
-            if (!field.needsCodingKeys) {
-                field.needsCodingKeys = (camelCaseName !== name);
+        // 生成属性定义
+        fields.forEach(field => {
+            const camelCaseName = this.toCamelCase(field.name);
+            // 嵌套对象使用类型声明，其他使用默认值赋值
+            if (field.defaultValue === null) {
+                code += `    var ${camelCaseName}: ${field.type}\n`;
+            } else {
+                code += `    var ${camelCaseName} = ${field.defaultValue}\n`;
             }
         });
 
-        // 检查是否需要 CodingKeys
-        const needsCodingKeys = fields.some(f => f.needsCodingKeys);
-        if (needsCodingKeys) {
-            code += `\n    enum CodingKeys: String, CodingKey {\n`;
-            fields.forEach(field => {
-                const camelCaseName = this.toCamelCase(field.name);
-                code += `        case ${camelCaseName} = "${field.name}"\n`;
-            });
-            code += `    }\n`;
-        }
+        code += `    \n`;
+        code += `    init() {}\n`;
+        code += `    \n`;
+        
+        // 生成 SwiftyJSON 初始化方法
+        code += `    init?(json: JSON) {\n`;
+        code += `        guard json.type == .dictionary else {\n`;
+        code += `            return nil\n`;
+        code += `        }\n`;
+        code += `        \n`;
 
+        fields.forEach(field => {
+            const camelCaseName = this.toCamelCase(field.name);
+            
+            if (field.isNestedObject) {
+                // 嵌套对象 - 直接赋值，不使用 if let
+                code += `        ${camelCaseName} = ${field.nestedClassName}(json: json["${field.name}"])\n`;
+            } else if (field.isArray) {
+                // 数组类型
+                code += `        ${this.generateArrayInit(field, camelCaseName)}\n`;
+            } else {
+                // 基础类型
+                code += `        ${camelCaseName} = json["${field.name}"].${field.jsonMethod}\n`;
+            }
+        });
+
+        code += `    }\n`;
         code += `}\n`;
         return code;
     }
@@ -610,7 +680,7 @@ class JsonToSwiftConverter {
      * @returns {Object} - 包含导入语句和类列表的对象
      */
     generateFinalCode() {
-        const importStatement = "import Foundation";
+        const importStatement = "import SwiftyJSON";
         
         // 按生成顺序的反序输出类（嵌套类在前，根类在后）
         const reversedOrder = [...this.classOrder].reverse();
