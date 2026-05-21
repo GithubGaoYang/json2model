@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JSON 转 ArkTS Model</title>
+    <title>JSON 转 Model 工具</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>JSON 转 ArkTS Model 工具</h1>
+        <h1>JSON 转 Model 工具</h1>
         
         <div class="content">
             <div class="input-section">
@@ -18,11 +18,18 @@
             </div>
             
             <div class="button-section">
+                <div class="language-selector">
+                    <label for="languageSelect">选择语言：</label>
+                    <select id="languageSelect">
+                        <option value="arkts">ArkTS</option>
+                        <option value="swift">Swift</option>
+                    </select>
+                </div>
                 <button id="convertBtn" class="convert-btn">转换</button>
             </div>
             
             <div class="output-section">
-                <h2>ArkTS Model 输出</h2>
+                <h2 id="outputTitle">ArkTS Model 输出</h2>
                 <div id="arktsOutput" class="output-container">
                     <div class="empty-hint">转换结果将显示在这里...</div>
                 </div>
@@ -32,6 +39,7 @@
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
     <script src="converter.js"></script>
     <script src="app.js"></script>
 </body>

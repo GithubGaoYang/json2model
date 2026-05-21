@@ -5,13 +5,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const jsonInput = document.getElementById('jsonInput');
     const arktsOutput = document.getElementById('arktsOutput');
     const convertBtn = document.getElementById('convertBtn');
+    const languageSelect = document.getElementById('languageSelect');
+    const outputTitle = document.getElementById('outputTitle');
 
     // 创建转换器实例
-    const converter = new JsonToArkTSConverter();
+    const arktsConverter = new JsonToArkTSConverter();
+    const swiftConverter = new JsonToSwiftConverter();
+
+    // 语言选择事件
+    languageSelect.addEventListener('change', () => {
+        const language = languageSelect.value;
+        if (language === 'arkts') {
+            outputTitle.textContent = 'ArkTS Model 输出';
+        } else if (language === 'swift') {
+            outputTitle.textContent = 'Swift Model 输出';
+        }
+        // 清空输出
+        arktsOutput.innerHTML = '<div class="empty-hint">转换结果将显示在这里...</div>';
+    });
 
     // 转换按钮点击事件
     convertBtn.addEventListener('click', () => {
         const jsonStr = jsonInput.value.trim();
+        const language = languageSelect.value;
 
         if (!jsonStr) {
             showError('错误：请输入 JSON 内容');
@@ -19,8 +35,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const result = converter.convert(jsonStr);
-            renderOutput(result);
+            let result;
+            if (language === 'arkts') {
+                result = arktsConverter.convert(jsonStr);
+            } else if (language === 'swift') {
+                result = swiftConverter.convert(jsonStr);
+            }
+            renderOutput(result, language);
         } catch (error) {
             showError(`错误：${error.message}`);
         }
@@ -36,17 +57,18 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * 渲染输出结果
      * @param {Object} result - 包含 importStatement 和 classes 的对象
+     * @param {string} language - 语言类型
      */
-    function renderOutput(result) {
+    function renderOutput(result, language) {
         arktsOutput.innerHTML = '';
 
         // 添加导入语句块
-        const importBlock = createCodeBlock('Import', result.importStatement);
+        const importBlock = createCodeBlock('Import', result.importStatement, language);
         arktsOutput.appendChild(importBlock);
 
         // 添加每个类的代码块
         result.classes.forEach(classInfo => {
-            const codeBlock = createCodeBlock(classInfo.name, classInfo.code);
+            const codeBlock = createCodeBlock(classInfo.name, classInfo.code, language);
             arktsOutput.appendChild(codeBlock);
         });
     }
@@ -55,9 +77,10 @@ document.addEventListener('DOMContentLoaded', () => {
      * 创建代码块元素
      * @param {string} title - 标题
      * @param {string} code - 代码内容
+     * @param {string} language - 语言类型
      * @returns {HTMLElement} - 代码块元素
      */
-    function createCodeBlock(title, code) {
+    function createCodeBlock(title, code, language) {
         const block = document.createElement('div');
         block.className = 'code-block';
 
@@ -82,7 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // 创建 pre 和 code 元素用于语法高亮
         const pre = document.createElement('pre');
         const codeEl = document.createElement('code');
-        codeEl.className = 'language-typescript';
+        const langClass = language === 'swift' ? 'language-swift' : 'language-typescript';
+        codeEl.className = langClass;
         codeEl.textContent = code;
         
         pre.appendChild(codeEl);
@@ -137,6 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
     "email": "zhangsan@example.com",
     "is_active": true,
     "age": 25,
+    "score": 95.5,
     "profile": {
       "avatar": "https://example.com/avatar.jpg",
       "bio": "这是个人简介"
