@@ -25,7 +25,6 @@ class JsonToArkTSConverter {
             }
             
             // 直接处理整个 JSON 对象，将其作为一个根对象
-            // 使用第一个 key 作为类名（保持原始大小写）
             const firstKey = Object.keys(jsonObj)[0];
             
             // 如果只有一个根键且其值是对象，使用该键作为类名
@@ -33,7 +32,9 @@ class JsonToArkTSConverter {
                 const value = jsonObj[firstKey];
                 if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                     // 标准情况：{ "User": { "name": "...", ... } }
-                    this.processObject(value, firstKey);
+                    // 将根类名转换为大驼峰命名
+                    const className = this.toPascalCase(firstKey);
+                    this.processObject(value, className);
                 } else {
                     // 非标准情况：{ "code": "200" } -> 创建一个包含该字段的类
                     this.processObject(jsonObj, this.generateDefaultClassName(jsonObj));
@@ -57,9 +58,9 @@ class JsonToArkTSConverter {
      * @returns {string} - 类名
      */
     generateDefaultClassName(obj) {
-        // 使用第一个 key 的首字母大写作为类名
+        // 使用第一个 key 转换为大驼峰命名作为类名
         const firstKey = Object.keys(obj)[0];
-        return this.capitalizeFirstLetter(firstKey);
+        return this.toPascalCase(firstKey);
     }
 
     /**
@@ -186,8 +187,9 @@ class JsonToArkTSConverter {
             }
 
             if (elementType === 'object' && firstElement !== null) {
-                // 对象数组
-                const nestedClassName = this.capitalizeFirstLetter(fieldName.replace(/s$/, '')); // 移除末尾的 s
+                // 对象数组，移除末尾的 s 并转换为大驼峰命名
+                const fieldNameSingular = fieldName.replace(/s$/, '');
+                const nestedClassName = this.toPascalCase(fieldNameSingular);
                 this.processObject(firstElement, nestedClassName);
                 return {
                     type: nestedClassName,
@@ -208,7 +210,7 @@ class JsonToArkTSConverter {
 
         // 对象类型（嵌套对象）
         if (type === 'object') {
-            const nestedClassName = this.capitalizeFirstLetter(fieldName);
+            const nestedClassName = this.toPascalCase(fieldName);
             this.processObject(value, nestedClassName);
             return {
                 type: nestedClassName,
@@ -225,6 +227,25 @@ class JsonToArkTSConverter {
             isOptional: false,
             defaultValue: "''"
         };
+    }
+
+    /**
+     * 转换为大驼峰命名（PascalCase）
+     * @param {string} str - 原始字符串
+     * @returns {string} - 大驼峰命名的字符串
+     */
+    toPascalCase(str) {
+        if (!str) return str;
+        
+        // 处理下划线、连字符、空格分隔的字符串
+        return str
+            .split(/[_\-\s]+/) // 按下划线、连字符、空格分割
+            .map(word => {
+                if (!word) return '';
+                // 每个单词首字母大写
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            })
+            .join('');
     }
 
     /**
