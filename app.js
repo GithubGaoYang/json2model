@@ -7,18 +7,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const convertBtn = document.getElementById('convertBtn');
     const languageSelect = document.getElementById('languageSelect');
     const outputTitle = document.getElementById('outputTitle');
+    const clearInputBtn = document.getElementById('clearInputBtn');
 
     // 创建转换器实例
     const arktsConverter = new JsonToArkTSConverter();
     const swiftConverter = new JsonToSwiftConverter();
 
+    // 清空输入按钮事件
+    clearInputBtn.addEventListener('click', () => {
+        jsonInput.value = '';
+        jsonInput.focus();
+    });
+
     // 语言选择事件
     languageSelect.addEventListener('change', () => {
         const language = languageSelect.value;
         if (language === 'arkts') {
-            outputTitle.textContent = 'ArkTS Model 输出';
+            outputTitle.textContent = 'ArkTS Model输出';
         } else if (language === 'swift') {
-            outputTitle.textContent = 'Swift Model 输出';
+            outputTitle.textContent = 'Swift Model输出';
         }
         // 清空输出
         arktsOutput.innerHTML = '<div class="empty-hint">转换结果将显示在这里...</div>';
@@ -132,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             await navigator.clipboard.writeText(code);
             const originalText = btn.textContent;
-            btn.textContent = '已复制！';
+            btn.textContent = '已复制';
             btn.classList.add('copied');
 
             setTimeout(() => {
