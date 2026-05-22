@@ -37,17 +37,13 @@
                             <i class="el-icon-right"></i> 转换
                         </el-button>
                         <el-button @click="clearInput" icon="el-icon-delete">清空</el-button>
+                        <el-button @click="showSettings" icon="el-icon-setting">设置</el-button>
                     </div>
                 </el-card>
                 
                 <!-- 中间按钮区域 -->
                 <div class="button-section">
-                    <div class="language-selector">
-                        <el-select v-model="selectedLanguage" placeholder="请选择" @change="onLanguageChange" size="medium">
-                            <el-option label="ArkTS" value="arkts"></el-option>
-                            <el-option label="Swift" value="swift"></el-option>
-                        </el-select>
-                    </div>
+                    <!-- 中间区域留空，语言选择移到设置弹窗 -->
                 </div>
                 
                 <!-- 输出区域 -->
@@ -73,6 +69,25 @@
                 </el-card>
             </div>
         </div>
+        
+        <!-- 设置弹窗 -->
+        <el-dialog
+            title="设置"
+            :visible.sync="settingsDialogVisible"
+            width="400px">
+            <el-form label-width="100px">
+                <el-form-item label="目标语言">
+                    <el-select v-model="selectedLanguage" placeholder="请选择" @change="onLanguageChange">
+                        <el-option label="ArkTS" value="arkts"></el-option>
+                        <el-option label="Swift" value="swift"></el-option>
+                    </el-select>
+                </el-form-item>
+            </el-form>
+            <span slot="footer" class="dialog-footer">
+                <el-button @click="settingsDialogVisible = false">取消</el-button>
+                <el-button type="primary" @click="settingsDialogVisible = false">确定</el-button>
+            </span>
+        </el-dialog>
     </div>
     
     <!-- Vue.js -->

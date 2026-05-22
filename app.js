@@ -8,6 +8,7 @@ new Vue({
         selectedLanguage: 'arkts',
         outputClasses: [],
         converting: false,
+        settingsDialogVisible: false, // 设置弹窗显示状态
         // 转换器实例
         arktsConverter: null,
         swiftConverter: null,
@@ -77,6 +78,13 @@ new Vue({
          */
         clearInput() {
             this.jsonInput = '';
+        },
+        
+        /**
+         * 显示设置弹窗
+         */
+        showSettings() {
+            this.settingsDialogVisible = true;
         },
         
         /**

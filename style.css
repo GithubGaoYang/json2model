@@ -71,6 +71,10 @@ h1 {
     gap: 10px;
 }
 
+.input-footer .el-button:not(.convert-btn-full) {
+    min-width: 80px;
+}
+
 .convert-btn-full {
     flex: 1;
 }
@@ -181,22 +185,14 @@ h2 {
 
 .button-section {
     text-align: center;
-    padding: 20px 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 0;
     align-items: center;
     justify-content: center;
-}
-
-.language-selector {
-    display: flex;
-    align-items: center;
-    gap: 0;
-}
-
-.language-selector .el-select {
-    width: 120px;
+    width: 0;
+    flex-shrink: 0;
 }
 
 
@@ -209,12 +205,8 @@ h2 {
     
     .button-section {
         flex: 0 0 auto;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 60px 20px;
-        gap: 0;
+        width: 0;
+        padding: 0;
     }
     
     .input-section .el-textarea__inner {
