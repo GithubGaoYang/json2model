@@ -4,49 +4,84 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JSON转Model转换器</title>
+    <!-- ElementUI CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <!-- Highlight.js CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>JSON转ARKTS Model转换器</h1>
-        <p class="subtitle">将JSON格式数据自动转换为符合ARKTS规范的类模型代码</p>
-        
-        <div class="content">
-            <div class="input-section">
-                <div class="section-header">
-                    <h2>JSON输入</h2>
-                    <button class="clear-btn" id="clearInputBtn">清空</button>
-                </div>
-                <textarea id="jsonInput" placeholder="请输入 JSON 内容..."></textarea>
-            </div>
+    <div id="app">
+        <div class="container">
+            <h1>JSON转ARKTS Model转换器</h1>
+            <p class="subtitle">将JSON格式数据自动转换为符合ARKTS规范的类模型代码</p>
             
-            <div class="button-section">
-                <div class="language-selector">
-                    <label for="languageSelect">选择语言</label>
-                    <select id="languageSelect">
-                        <option value="arkts">ArkTS</option>
-                        <option value="swift">Swift</option>
-                    </select>
+            <div class="content">
+                <!-- 输入区域 -->
+                <el-card class="input-section" shadow="hover">
+                    <div slot="header" class="section-header">
+                        <span>JSON输入</span>
+                        <el-button size="small" @click="clearInput">清空</el-button>
+                    </div>
+                    <el-input
+                        type="textarea"
+                        :rows="20"
+                        placeholder="请输入 JSON 内容..."
+                        v-model="jsonInput"
+                        @keydown.ctrl.enter.native="convert"
+                        @keydown.meta.enter.native="convert">
+                    </el-input>
+                </el-card>
+                
+                <!-- 中间按钮区域 -->
+                <div class="button-section">
+                    <div class="language-selector">
+                        <label>选择语言</label>
+                        <el-select v-model="selectedLanguage" placeholder="请选择" @change="onLanguageChange">
+                            <el-option label="ArkTS" value="arkts"></el-option>
+                            <el-option label="Swift" value="swift"></el-option>
+                        </el-select>
+                    </div>
+                    <el-button type="success" size="large" @click="convert" :loading="converting">
+                        {{ converting ? '转换中...' : '转换' }}
+                    </el-button>
                 </div>
-                <button id="convertBtn" class="convert-btn">转换</button>
-            </div>
-            
-            <div class="output-section">
-                <div class="section-header">
-                    <h2 id="outputTitle">ArkTS Model输出</h2>
-                </div>
-                <div id="arktsOutput" class="output-container">
-                    <div class="empty-hint">转换结果将显示在这里...</div>
-                </div>
+                
+                <!-- 输出区域 -->
+                <el-card class="output-section" shadow="hover">
+                    <div slot="header" class="section-header">
+                        <span>{{ outputTitle }}</span>
+                    </div>
+                    <div class="output-container" v-if="outputClasses.length > 0">
+                        <div v-for="(item, index) in outputClasses" :key="index" class="code-block">
+                            <div class="code-header">
+                                <div class="code-title">{{ item.name }}</div>
+                                <el-button size="mini" @click="copyCode(item.code)">复制代码</el-button>
+                            </div>
+                            <div class="code-content">
+                                <pre><code :class="codeLanguageClass" v-html="item.highlightedCode"></code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="empty-hint">
+                        <el-empty :image-size="100" description="转换结果将显示在这里..."></el-empty>
+                    </div>
+                </el-card>
             </div>
         </div>
     </div>
     
+    <!-- Vue.js -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <!-- ElementUI JS -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <!-- Highlight.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/swift.min.js"></script>
+    <!-- 转换器 -->
     <script src="converter.js"></script>
+    <!-- Vue应用 -->
     <script src="app.js"></script>
 </body>
 </html>

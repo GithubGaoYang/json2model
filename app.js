@@ -1,167 +1,18 @@
 /**
- * 主应用逻辑
+ * Vue应用 - JSON转Model转换器
  */
-document.addEventListener('DOMContentLoaded', () => {
-    const jsonInput = document.getElementById('jsonInput');
-    const arktsOutput = document.getElementById('arktsOutput');
-    const convertBtn = document.getElementById('convertBtn');
-    const languageSelect = document.getElementById('languageSelect');
-    const outputTitle = document.getElementById('outputTitle');
-    const clearInputBtn = document.getElementById('clearInputBtn');
-
-    // 创建转换器实例
-    const arktsConverter = new JsonToArkTSConverter();
-    const swiftConverter = new JsonToSwiftConverter();
-
-    // 清空输入按钮事件
-    clearInputBtn.addEventListener('click', () => {
-        jsonInput.value = '';
-        jsonInput.focus();
-    });
-
-    // 语言选择事件
-    languageSelect.addEventListener('change', () => {
-        const language = languageSelect.value;
-        if (language === 'arkts') {
-            outputTitle.textContent = 'ArkTS Model输出';
-        } else if (language === 'swift') {
-            outputTitle.textContent = 'Swift Model输出';
-        }
-        // 清空输出
-        arktsOutput.innerHTML = '<div class="empty-hint">转换结果将显示在这里...</div>';
-    });
-
-    // 转换按钮点击事件
-    convertBtn.addEventListener('click', () => {
-        const jsonStr = jsonInput.value.trim();
-        const language = languageSelect.value;
-
-        if (!jsonStr) {
-            showError('错误：请输入 JSON 内容');
-            return;
-        }
-
-        try {
-            let result;
-            if (language === 'arkts') {
-                result = arktsConverter.convert(jsonStr);
-            } else if (language === 'swift') {
-                result = swiftConverter.convert(jsonStr);
-            }
-            renderOutput(result, language);
-        } catch (error) {
-            showError(`错误：${error.message}`);
-        }
-    });
-
-    // 支持 Ctrl+Enter 或 Cmd+Enter 快捷键转换
-    jsonInput.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-            convertBtn.click();
-        }
-    });
-
-    /**
-     * 渲染输出结果
-     * @param {Object} result - 包含 importStatement 和 classes 的对象
-     * @param {string} language - 语言类型
-     */
-    function renderOutput(result, language) {
-        arktsOutput.innerHTML = '';
-
-        // 添加导入语句块
-        const importBlock = createCodeBlock('Import', result.importStatement, language);
-        arktsOutput.appendChild(importBlock);
-
-        // 添加每个类的代码块
-        result.classes.forEach(classInfo => {
-            const codeBlock = createCodeBlock(classInfo.name, classInfo.code, language);
-            arktsOutput.appendChild(codeBlock);
-        });
-    }
-
-    /**
-     * 创建代码块元素
-     * @param {string} title - 标题
-     * @param {string} code - 代码内容
-     * @param {string} language - 语言类型
-     * @returns {HTMLElement} - 代码块元素
-     */
-    function createCodeBlock(title, code, language) {
-        const block = document.createElement('div');
-        block.className = 'code-block';
-
-        const header = document.createElement('div');
-        header.className = 'code-header';
-
-        const titleEl = document.createElement('div');
-        titleEl.className = 'code-title';
-        titleEl.textContent = title;
-
-        const copyBtn = document.createElement('button');
-        copyBtn.className = 'copy-btn';
-        copyBtn.textContent = '复制代码';
-        copyBtn.onclick = () => copyCode(copyBtn, code);
-
-        header.appendChild(titleEl);
-        header.appendChild(copyBtn);
-
-        const content = document.createElement('div');
-        content.className = 'code-content';
-        
-        // 创建 pre 和 code 元素用于语法高亮
-        const pre = document.createElement('pre');
-        const codeEl = document.createElement('code');
-        const langClass = language === 'swift' ? 'language-swift' : 'language-typescript';
-        codeEl.className = langClass;
-        codeEl.textContent = code;
-        
-        pre.appendChild(codeEl);
-        content.appendChild(pre);
-        
-        // 应用语法高亮
-        if (window.hljs) {
-            hljs.highlightElement(codeEl);
-        }
-
-        block.appendChild(header);
-        block.appendChild(content);
-
-        return block;
-    }
-
-    /**
-     * 复制代码到剪贴板
-     * @param {HTMLElement} btn - 按钮元素
-     * @param {string} code - 要复制的代码
-     */
-    async function copyCode(btn, code) {
-        try {
-            await navigator.clipboard.writeText(code);
-            const originalText = btn.textContent;
-            btn.textContent = '已复制';
-            btn.classList.add('copied');
-
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.classList.remove('copied');
-            }, 2000);
-        } catch (error) {
-            console.error('复制失败:', error);
-            alert('复制失败，请手动复制');
-        }
-    }
-
-    /**
-     * 显示错误信息
-     * @param {string} message - 错误信息
-     */
-    function showError(message) {
-        arktsOutput.innerHTML = `<div class="empty-hint" style="color: #dc3545;">${message}</div>`;
-    }
-
-    // 示例 JSON
-    const exampleJson = `{
+new Vue({
+    el: '#app',
+    data: {
+        jsonInput: '',
+        selectedLanguage: 'arkts',
+        outputClasses: [],
+        converting: false,
+        // 转换器实例
+        arktsConverter: null,
+        swiftConverter: null,
+        // 示例JSON
+        exampleJson: `{
   "User": {
     "id": 123,
     "name": "张三",
@@ -180,8 +31,108 @@ document.addEventListener('DOMContentLoaded', () => {
       "notifications_enabled": true
     }
   }
-}`;
-
-    // 设置示例 JSON
-    jsonInput.value = exampleJson;
+}`
+    },
+    computed: {
+        outputTitle() {
+            return this.selectedLanguage === 'arkts' ? 'ArkTS Model输出' : 'Swift Model输出';
+        },
+        codeLanguageClass() {
+            return this.selectedLanguage === 'swift' ? 'language-swift' : 'language-typescript';
+        }
+    },
+    mounted() {
+        // 初始化转换器
+        this.arktsConverter = new JsonToArkTSConverter();
+        this.swiftConverter = new JsonToSwiftConverter();
+        
+        // 设置示例JSON
+        this.jsonInput = this.exampleJson;
+    },
+    methods: {
+        /**
+         * 清空输入
+         */
+        clearInput() {
+            this.jsonInput = '';
+        },
+        
+        /**
+         * 语言切换
+         */
+        onLanguageChange() {
+            this.outputClasses = [];
+        },
+        
+        /**
+         * 转换JSON
+         */
+        convert() {
+            const jsonStr = this.jsonInput.trim();
+            
+            if (!jsonStr) {
+                this.$message.error('请输入 JSON 内容');
+                return;
+            }
+            
+            this.converting = true;
+            
+            // 使用setTimeout模拟异步，避免阻塞UI
+            setTimeout(() => {
+                try {
+                    let result;
+                    if (this.selectedLanguage === 'arkts') {
+                        result = this.arktsConverter.convert(jsonStr);
+                    } else if (this.selectedLanguage === 'swift') {
+                        result = this.swiftConverter.convert(jsonStr);
+                    }
+                    
+                    // 处理输出结果
+                    this.outputClasses = [
+                        {
+                            name: 'Import',
+                            code: result.importStatement,
+                            highlightedCode: this.highlightCode(result.importStatement)
+                        },
+                        ...result.classes.map(classInfo => ({
+                            name: classInfo.name,
+                            code: classInfo.code,
+                            highlightedCode: this.highlightCode(classInfo.code)
+                        }))
+                    ];
+                    
+                    this.$message.success('转换成功！');
+                } catch (error) {
+                    this.$message.error(`转换失败: ${error.message}`);
+                    this.outputClasses = [];
+                } finally {
+                    this.converting = false;
+                }
+            }, 100);
+        },
+        
+        /**
+         * 语法高亮
+         */
+        highlightCode(code) {
+            if (window.hljs) {
+                const language = this.selectedLanguage === 'swift' ? 'swift' : 'typescript';
+                return hljs.highlight(code, { language }).value;
+            }
+            return code;
+        },
+        
+        /**
+         * 复制代码
+         */
+        async copyCode(code) {
+            try {
+                await navigator.clipboard.writeText(code);
+                this.$message.success('复制成功！');
+            } catch (error) {
+                console.error('复制失败:', error);
+                this.$message.error('复制失败，请手动复制');
+            }
+        }
+    }
 });
