@@ -102,14 +102,17 @@ h2 {
 
 
 .output-container {
-    min-height: 400px;
+    min-height: 480px;
     background-color: #fafafa;
     overflow-y: auto;
 }
 
 .output-container .empty-hint {
-    padding: 20px;
+    padding: 40px 20px;
     text-align: left;
+    min-height: 480px;
+    display: flex;
+    align-items: flex-start;
 }
 
 .empty-text {
@@ -117,6 +120,9 @@ h2 {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
     font-size: 13px;
     line-height: 1.6;
+    padding-top: 20px;
+    padding-left: 20px;
+    padding-bottom: 40px;
 }
 
 .code-block {
