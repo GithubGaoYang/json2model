@@ -5,7 +5,7 @@ new Vue({
     el: '#app',
     data: {
         jsonInput: '',
-        selectedLanguage: 'arkts',
+        selectedLanguage: 'arkts', // 默认值
         outputClasses: [],
         converting: false,
         settingsDialogVisible: false, // 设置弹窗显示状态
@@ -34,6 +34,7 @@ new Vue({
   }
 }`
     },
+    
     computed: {
         outputTitle() {
             return this.selectedLanguage === 'arkts' ? 'ArkTS Model输出' : 'Swift Model输出';
@@ -42,14 +43,43 @@ new Vue({
             return this.selectedLanguage === 'swift' ? 'language-swift' : 'language-typescript';
         }
     },
+    
     mounted() {
+        // 从本地存储获取语言选择
+        const storedLanguage = this.getStoredLanguage();
+        if (storedLanguage) {
+            this.selectedLanguage = storedLanguage;
+        }
+        
         // 初始化转换器
         this.arktsConverter = new JsonToArkTSConverter();
         this.swiftConverter = new JsonToSwiftConverter();
-            
+        
         // 默认不加载示例
     },
+    
+    watch: {
+        // 监听语言选择变化，保存到本地存储
+        selectedLanguage(newVal) {
+            this.setStoredLanguage(newVal);
+        }
+    },
+    
     methods: {
+        /**
+         * 从本地存储获取语言选择
+         */
+        getStoredLanguage() {
+            const stored = localStorage.getItem('selectedLanguage');
+            return stored || 'arkts'; // 默认为arkts
+        },
+        
+        /**
+         * 保存语言选择到本地存储
+         */
+        setStoredLanguage(language) {
+            localStorage.setItem('selectedLanguage', language);
+        },
         /**
          * 加载示例
          */
