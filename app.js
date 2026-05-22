@@ -45,11 +45,33 @@ new Vue({
         // 初始化转换器
         this.arktsConverter = new JsonToArkTSConverter();
         this.swiftConverter = new JsonToSwiftConverter();
-        
-        // 设置示例JSON
-        this.jsonInput = this.exampleJson;
+            
+        // 默认不加载示例
     },
     methods: {
+        /**
+         * 加载示例
+         */
+        loadExample() {
+            // 如果已有内容，弹窗确认
+            if (this.jsonInput.trim()) {
+                this.$confirm('当前输入区域已有内容，是否替换为示例内容？', '提示', {
+                    confirmButtonText: '确定',
+                    cancelButtonText: '取消',
+                    type: 'warning'
+                }).then(() => {
+                    this.jsonInput = this.exampleJson;
+                    this.$message.success('示例加载成功！');
+                }).catch(() => {
+                    // 用户取消，不做任何操作
+                });
+            } else {
+                // 直接加载示例
+                this.jsonInput = this.exampleJson;
+                this.$message.success('示例加载成功！');
+            }
+        },
+        
         /**
          * 清空输入
          */
@@ -128,6 +150,20 @@ new Vue({
         async copyCode(code) {
             try {
                 await navigator.clipboard.writeText(code);
+                this.$message.success('复制成功！');
+            } catch (error) {
+                console.error('复制失败:', error);
+                this.$message.error('复制失败，请手动复制');
+            }
+        },
+        
+        /**
+         * 复制所有代码
+         */
+        async copyAllCode() {
+            try {
+                const allCode = this.outputClasses.map(item => item.code).join('\n\n');
+                await navigator.clipboard.writeText(allCode);
                 this.$message.success('复制成功！');
             } catch (error) {
                 console.error('复制失败:', error);

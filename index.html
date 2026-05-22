@@ -21,36 +21,40 @@
                 <el-card class="input-section" shadow="hover">
                     <div slot="header" class="section-header">
                         <span>JSON输入</span>
-                        <el-button size="small" @click="clearInput">清空</el-button>
+                        <el-button size="small" @click="loadExample">加载示例</el-button>
                     </div>
                     <el-input
                         type="textarea"
-                        :rows="20"
+                        :rows="15"
                         placeholder="请输入 JSON 内容..."
                         v-model="jsonInput"
+                        class="json-input"
                         @keydown.ctrl.enter.native="convert"
                         @keydown.meta.enter.native="convert">
                     </el-input>
+                    <div class="input-footer">
+                        <el-button type="success" @click="convert" :loading="converting" class="convert-btn-full">
+                            <i class="el-icon-right"></i> 转换
+                        </el-button>
+                        <el-button @click="clearInput" icon="el-icon-delete">清空</el-button>
+                    </div>
                 </el-card>
                 
                 <!-- 中间按钮区域 -->
                 <div class="button-section">
                     <div class="language-selector">
-                        <label>选择语言</label>
-                        <el-select v-model="selectedLanguage" placeholder="请选择" @change="onLanguageChange">
+                        <el-select v-model="selectedLanguage" placeholder="请选择" @change="onLanguageChange" size="medium">
                             <el-option label="ArkTS" value="arkts"></el-option>
                             <el-option label="Swift" value="swift"></el-option>
                         </el-select>
                     </div>
-                    <el-button type="success" size="large" @click="convert" :loading="converting">
-                        {{ converting ? '转换中...' : '转换' }}
-                    </el-button>
                 </div>
                 
                 <!-- 输出区域 -->
                 <el-card class="output-section" shadow="hover">
                     <div slot="header" class="section-header">
                         <span>{{ outputTitle }}</span>
+                        <el-button size="small" icon="el-icon-document-copy" @click="copyAllCode" v-if="outputClasses.length > 0">复制代码</el-button>
                     </div>
                     <div class="output-container" v-if="outputClasses.length > 0">
                         <div v-for="(item, index) in outputClasses" :key="index" class="code-block">
@@ -64,7 +68,7 @@
                         </div>
                     </div>
                     <div v-else class="empty-hint">
-                        <el-empty :image-size="100" description="转换结果将显示在这里..."></el-empty>
+                        <div class="empty-text">// 转换结果将显示在这里...</div>
                     </div>
                 </el-card>
             </div>
