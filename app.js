@@ -78,6 +78,7 @@ new Vue({
          */
         clearInput() {
             this.jsonInput = '';
+            this.outputClasses = []; // 同时清空输出区域
         },
         
         /**
