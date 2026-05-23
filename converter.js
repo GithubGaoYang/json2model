@@ -27,13 +27,13 @@ class JsonToArkTSConverter {
             // 直接处理整个 JSON 对象，将其作为一个根对象
             const firstKey = Object.keys(jsonObj)[0];
             
-            // 如果只有一个根键且其值是对象，使用该键作为类名
+            // 如果只有一个根键且其值是对象，使用固定类名Root
             if (Object.keys(jsonObj).length === 1) {
                 const value = jsonObj[firstKey];
                 if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                     // 标准情况：{ "User": { "name": "...", ... } }
-                    // 将根类名转换为大驼峰命名
-                    const className = this.toPascalCase(firstKey);
+                    // 固定根类名为Root
+                    const className = 'Root';
                     this.processObject(value, className);
                 } else {
                     // 非标准情况：{ "code": "200" } -> 创建一个包含该字段的类
@@ -41,7 +41,8 @@ class JsonToArkTSConverter {
                 }
             } else {
                 // 多个根键：{ "name": "...", "age": 20 } -> 创建一个类包含所有字段
-                this.processObject(jsonObj, this.generateDefaultClassName(jsonObj));
+                // 固定根类名为Root
+                this.processObject(jsonObj, 'Root');
             }
             
             // 生成最终代码
@@ -348,13 +349,13 @@ class JsonToSwiftConverter {
             // 直接处理整个 JSON 对象，将其作为一个根对象
             const firstKey = Object.keys(jsonObj)[0];
             
-            // 如果只有一个根键且其值是对象，使用该键作为类名
+            // 如果只有一个根键且其值是对象，使用固定类名Root
             if (Object.keys(jsonObj).length === 1) {
                 const value = jsonObj[firstKey];
                 if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                     // 标准情况：{ "User": { "name": "...", ... } }
-                    // 将根类名转换为大驼峰命名
-                    const className = this.toPascalCase(firstKey);
+                    // 固定根类名为Root
+                    const className = 'Root';
                     this.processObject(value, className);
                 } else {
                     // 非标准情况：{ "code": "200" } -> 创建一个包含该字段的类
@@ -362,7 +363,8 @@ class JsonToSwiftConverter {
                 }
             } else {
                 // 多个根键：{ "name": "...", "age": 20 } -> 创建一个类包含所有字段
-                this.processObject(jsonObj, this.generateDefaultClassName(jsonObj));
+                // 固定根类名为Root
+                this.processObject(jsonObj, 'Root');
             }
             
             // 生成最终代码
