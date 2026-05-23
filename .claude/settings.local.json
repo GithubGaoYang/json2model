@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix\\(converter\\): 支持嵌套数组的JSON解析\n\n修复JSON解析器无法正确处理嵌套数组结构的问题，例如：\n{\n  \"free_module\": [\n    [\n      { \"data\": \"...\", \"data_type\": \"h1\" },\n      { \"data_type\": \"image\", \"data_img\": {...} }\n    ]\n  ]\n}\n\n主要修改：\n- 在 ArkTS 和 Swift 转换器的 getFieldType\\(\\) 方法中添加嵌套数组处理逻辑\n- 为对象数组生成更具体的类名（如 FreeModuleItem）避免命名冲突\n- 更新 Swift 的 generateArrayInit\\(\\) 方法支持嵌套对象数组的初始化\n- 在 processObject\\(\\) 方法中添加 isNestedArray 属性传递\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n\\)\")"
     ]
   }
 }

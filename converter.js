@@ -65,6 +65,27 @@ class JsonToArkTSConverter {
     }
 
     /**
+     * 合并数组中所有对象的字段，生成完整的字段集合
+     * @param {Array} array - 对象数组
+     * @returns {Object} - 合并后的字段对象
+     */
+    mergeArrayObjectsFields(array) {
+        const mergedFields = {};
+
+        array.forEach(obj => {
+            if (typeof obj === 'object' && obj !== null) {
+                Object.keys(obj).forEach(key => {
+                    if (!mergedFields.hasOwnProperty(key)) {
+                        mergedFields[key] = obj[key];
+                    }
+                });
+            }
+        });
+
+        return mergedFields;
+    }
+
+    /**
      * 处理对象，生成类定义
      * @param {Object} obj - 要处理的对象
      * @param {string} className - 类名
@@ -92,7 +113,42 @@ class JsonToArkTSConverter {
 
         this.generatedClasses.set(className, fields);
         this.classOrder.push(className);
-        
+
+        return className;
+    }
+
+    /**
+     * 处理对象数组，合并所有对象的字段后生成类定义
+     * @param {Array} array - 对象数组
+     * @param {string} className - 类名
+     * @returns {string} - 类名
+     */
+    processObjectArray(array, className) {
+        if (this.generatedClasses.has(className)) {
+            return className;
+        }
+
+        // 合并数组中所有对象的字段
+        const mergedObj = this.mergeArrayObjectsFields(array);
+
+        const fields = [];
+        const fieldNames = Object.keys(mergedObj).sort(); // 按字母顺序排序
+
+        fieldNames.forEach(fieldName => {
+            const value = mergedObj[fieldName];
+            const fieldType = this.getFieldType(value, fieldName);
+            fields.push({
+                name: fieldName,
+                type: fieldType.type,
+                typeName: fieldType.typeName,
+                isOptional: fieldType.isOptional,
+                defaultValue: fieldType.defaultValue
+            });
+        });
+
+        this.generatedClasses.set(className, fields);
+        this.classOrder.push(className);
+
         return className;
     }
 
@@ -208,7 +264,8 @@ class JsonToArkTSConverter {
                     const nestedClassName = this.toPascalCase(fieldNameSingular);
                     // 为嵌套对象数组生成一个更具体的类名
                     const arrayClassName = `${nestedClassName}Item`;
-                    this.processObject(nestedFirstElement, arrayClassName);
+                    // 合并数组中所有对象的字段
+                    this.processObjectArray(firstElement, arrayClassName);
                     return {
                         type: arrayClassName,
                         typeName: `${arrayClassName}[][]`,
@@ -259,7 +316,8 @@ class JsonToArkTSConverter {
                 const nestedClassName = this.toPascalCase(fieldNameSingular);
                 // 为对象数组生成一个更具体的类名，避免与嵌套数组冲突
                 const arrayClassName = `${nestedClassName}Item`;
-                this.processObject(firstElement, arrayClassName);
+                // 合并数组中所有对象的字段
+                this.processObjectArray(value, arrayClassName);
                 return {
                     type: arrayClassName,
                     typeName: `${arrayClassName}[]`,
@@ -455,6 +513,27 @@ class JsonToSwiftConverter {
     }
 
     /**
+     * 合并数组中所有对象的字段，生成完整的字段集合
+     * @param {Array} array - 对象数组
+     * @returns {Object} - 合并后的字段对象
+     */
+    mergeArrayObjectsFields(array) {
+        const mergedFields = {};
+
+        array.forEach(obj => {
+            if (typeof obj === 'object' && obj !== null) {
+                Object.keys(obj).forEach(key => {
+                    if (!mergedFields.hasOwnProperty(key)) {
+                        mergedFields[key] = obj[key];
+                    }
+                });
+            }
+        });
+
+        return mergedFields;
+    }
+
+    /**
      * 处理对象，生成类定义
      * @param {Object} obj - 要处理的对象
      * @param {string} className - 类名
@@ -488,7 +567,48 @@ class JsonToSwiftConverter {
 
         this.generatedClasses.set(className, fields);
         this.classOrder.push(className);
-        
+
+        return className;
+    }
+
+    /**
+     * 处理对象数组，合并所有对象的字段后生成类定义
+     * @param {Array} array - 对象数组
+     * @param {string} className - 类名
+     * @returns {string} - 类名
+     */
+    processObjectArray(array, className) {
+        if (this.generatedClasses.has(className)) {
+            return className;
+        }
+
+        // 合并数组中所有对象的字段
+        const mergedObj = this.mergeArrayObjectsFields(array);
+
+        const fields = [];
+        const fieldNames = Object.keys(mergedObj).sort(); // 按字母顺序排序
+
+        fieldNames.forEach(fieldName => {
+            const value = mergedObj[fieldName];
+            const fieldType = this.getFieldType(value, fieldName);
+            fields.push({
+                name: fieldName,
+                type: fieldType.type,
+                defaultValue: fieldType.defaultValue,
+                jsonMethod: fieldType.jsonMethod,
+                isArray: fieldType.isArray,
+                isObjectArray: fieldType.isObjectArray,
+                isNestedObject: fieldType.isNestedObject,
+                isNestedArray: fieldType.isNestedArray,
+                elementType: fieldType.elementType,
+                elementJsonMethod: fieldType.elementJsonMethod,
+                nestedClassName: fieldType.nestedClassName
+            });
+        });
+
+        this.generatedClasses.set(className, fields);
+        this.classOrder.push(className);
+
         return className;
     }
 
@@ -613,7 +733,8 @@ class JsonToSwiftConverter {
                     const nestedClassName = this.toPascalCase(fieldNameSingular);
                     // 为嵌套对象数组生成一个更具体的类名
                     const arrayClassName = `${nestedClassName}Item`;
-                    this.processObject(nestedFirstElement, arrayClassName);
+                    // 合并数组中所有对象的字段
+                    this.processObjectArray(firstElement, arrayClassName);
                     return {
                         type: `[[${arrayClassName}]]`,
                         defaultValue: `[[${arrayClassName}]]()`,
@@ -678,7 +799,8 @@ class JsonToSwiftConverter {
                 const nestedClassName = this.toPascalCase(fieldNameSingular);
                 // 为对象数组生成一个更具体的类名，避免与嵌套数组冲突
                 const arrayClassName = `${nestedClassName}Item`;
-                this.processObject(firstElement, arrayClassName);
+                // 合并数组中所有对象的字段
+                this.processObjectArray(value, arrayClassName);
                 return {
                     type: `[${arrayClassName}]`,
                     defaultValue: `[${arrayClassName}]()`,
