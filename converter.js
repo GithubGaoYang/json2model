@@ -160,6 +160,72 @@ class JsonToArkTSConverter {
             const firstElement = value[0];
             const elementType = typeof firstElement;
 
+            // 处理嵌套数组：数组中的数组
+            if (Array.isArray(firstElement)) {
+                if (firstElement.length === 0) {
+                    // 嵌套空数组，使用字符串数组的数组
+                    return {
+                        type: 'String',
+                        typeName: 'string[][]',
+                        isOptional: false,
+                        defaultValue: '[]'
+                    };
+                }
+
+                const nestedFirstElement = firstElement[0];
+                const nestedElementType = typeof nestedFirstElement;
+
+                if (nestedElementType === 'string') {
+                    return {
+                        type: 'String',
+                        typeName: 'string[][]',
+                        isOptional: false,
+                        defaultValue: '[]'
+                    };
+                }
+
+                if (nestedElementType === 'number') {
+                    return {
+                        type: 'Number',
+                        typeName: 'number[][]',
+                        isOptional: false,
+                        defaultValue: '[]'
+                    };
+                }
+
+                if (nestedElementType === 'boolean') {
+                    return {
+                        type: 'Boolean',
+                        typeName: 'boolean[][]',
+                        isOptional: false,
+                        defaultValue: '[]'
+                    };
+                }
+
+                if (nestedElementType === 'object' && nestedFirstElement !== null) {
+                    // 嵌套对象数组：数组中的对象数组
+                    const fieldNameSingular = fieldName.replace(/s$/, '');
+                    const nestedClassName = this.toPascalCase(fieldNameSingular);
+                    // 为嵌套对象数组生成一个更具体的类名
+                    const arrayClassName = `${nestedClassName}Item`;
+                    this.processObject(nestedFirstElement, arrayClassName);
+                    return {
+                        type: arrayClassName,
+                        typeName: `${arrayClassName}[][]`,
+                        isOptional: false,
+                        defaultValue: '[]'
+                    };
+                }
+
+                // 默认嵌套数组类型
+                return {
+                    type: 'String',
+                    typeName: 'string[][]',
+                    isOptional: false,
+                    defaultValue: '[]'
+                };
+            }
+
             if (elementType === 'string') {
                 return {
                     type: 'String',
@@ -191,10 +257,12 @@ class JsonToArkTSConverter {
                 // 对象数组，移除末尾的 s 并转换为大驼峰命名
                 const fieldNameSingular = fieldName.replace(/s$/, '');
                 const nestedClassName = this.toPascalCase(fieldNameSingular);
-                this.processObject(firstElement, nestedClassName);
+                // 为对象数组生成一个更具体的类名，避免与嵌套数组冲突
+                const arrayClassName = `${nestedClassName}Item`;
+                this.processObject(firstElement, arrayClassName);
                 return {
-                    type: nestedClassName,
-                    typeName: `${nestedClassName}[]`,
+                    type: arrayClassName,
+                    typeName: `${arrayClassName}[]`,
                     isOptional: false,
                     defaultValue: '[]'
                 };
@@ -411,6 +479,7 @@ class JsonToSwiftConverter {
                 isArray: fieldType.isArray,
                 isObjectArray: fieldType.isObjectArray,
                 isNestedObject: fieldType.isNestedObject,
+                isNestedArray: fieldType.isNestedArray,
                 elementType: fieldType.elementType,
                 elementJsonMethod: fieldType.elementJsonMethod,
                 nestedClassName: fieldType.nestedClassName
@@ -486,6 +555,88 @@ class JsonToSwiftConverter {
             const firstElement = value[0];
             const elementType = typeof firstElement;
 
+            // 处理嵌套数组：数组中的数组
+            if (Array.isArray(firstElement)) {
+                if (firstElement.length === 0) {
+                    // 嵌套空数组，使用字符串数组的数组
+                    return {
+                        type: '[[String]]',
+                        defaultValue: '[[String]]()',
+                        jsonMethod: 'arrayValue',
+                        isArray: true,
+                        elementType: '[String]',
+                        elementJsonMethod: 'arrayValue'
+                    };
+                }
+
+                const nestedFirstElement = firstElement[0];
+                const nestedElementType = typeof nestedFirstElement;
+
+                if (nestedElementType === 'string') {
+                    return {
+                        type: '[[String]]',
+                        defaultValue: '[[String]]()',
+                        jsonMethod: 'arrayValue',
+                        isArray: true,
+                        elementType: '[String]',
+                        elementJsonMethod: 'arrayValue'
+                    };
+                }
+
+                if (nestedElementType === 'number') {
+                    const isInteger = Number.isInteger(nestedFirstElement);
+                    const arrayType = isInteger ? 'Int' : 'Double';
+                    return {
+                        type: `[[${arrayType}]]`,
+                        defaultValue: `[[${arrayType}]]()`,
+                        jsonMethod: 'arrayValue',
+                        isArray: true,
+                        elementType: `[${arrayType}]`,
+                        elementJsonMethod: 'arrayValue'
+                    };
+                }
+
+                if (nestedElementType === 'boolean') {
+                    return {
+                        type: '[[Bool]]',
+                        defaultValue: '[[Bool]]()',
+                        jsonMethod: 'arrayValue',
+                        isArray: true,
+                        elementType: '[Bool]',
+                        elementJsonMethod: 'arrayValue'
+                    };
+                }
+
+                if (nestedElementType === 'object' && nestedFirstElement !== null) {
+                    // 嵌套对象数组：数组中的对象数组
+                    const fieldNameSingular = fieldName.replace(/s$/, '');
+                    const nestedClassName = this.toPascalCase(fieldNameSingular);
+                    // 为嵌套对象数组生成一个更具体的类名
+                    const arrayClassName = `${nestedClassName}Item`;
+                    this.processObject(nestedFirstElement, arrayClassName);
+                    return {
+                        type: `[[${arrayClassName}]]`,
+                        defaultValue: `[[${arrayClassName}]]()`,
+                        jsonMethod: 'arrayValue',
+                        isArray: true,
+                        isObjectArray: true,
+                        isNestedArray: true,
+                        elementType: arrayClassName,
+                        elementJsonMethod: 'dictionaryValue'
+                    };
+                }
+
+                // 默认嵌套数组类型
+                return {
+                    type: '[[String]]',
+                    defaultValue: '[[String]]()',
+                    jsonMethod: 'arrayValue',
+                    isArray: true,
+                    elementType: '[String]',
+                    elementJsonMethod: 'arrayValue'
+                };
+            }
+
             if (elementType === 'string') {
                 return {
                     type: '[String]',
@@ -525,14 +676,16 @@ class JsonToSwiftConverter {
                 // 对象数组，移除末尾的 s 并转换为大驼峰命名
                 const fieldNameSingular = fieldName.replace(/s$/, '');
                 const nestedClassName = this.toPascalCase(fieldNameSingular);
-                this.processObject(firstElement, nestedClassName);
+                // 为对象数组生成一个更具体的类名，避免与嵌套数组冲突
+                const arrayClassName = `${nestedClassName}Item`;
+                this.processObject(firstElement, arrayClassName);
                 return {
-                    type: `[${nestedClassName}]`,
-                    defaultValue: `[${nestedClassName}]()`,
+                    type: `[${arrayClassName}]`,
+                    defaultValue: `[${arrayClassName}]()`,
                     jsonMethod: 'arrayValue',
                     isArray: true,
                     isObjectArray: true,
-                    elementType: nestedClassName
+                    elementType: arrayClassName
                 };
             }
 
@@ -617,7 +770,10 @@ class JsonToSwiftConverter {
      * @returns {string} - 初始化代码
      */
     generateArrayInit(field, fieldName) {
-        if (field.isObjectArray) {
+        if (field.isNestedArray && field.isObjectArray) {
+            // 嵌套对象数组：数组中的对象数组
+            return `${fieldName} = json["${field.name}"].arrayValue.map { $0.arrayValue.compactMap { ${field.elementType}(json: $0) } }`;
+        } else if (field.isObjectArray) {
             // 对象数组
             return `${fieldName} = json["${field.name}"].arrayValue.compactMap { ${field.elementType}(json: $0) }`;
         } else {
