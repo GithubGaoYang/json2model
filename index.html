@@ -55,10 +55,12 @@
                     <div class="output-container" v-if="outputClasses.length > 0">
                         <div v-for="(item, index) in outputClasses" :key="index" class="code-block">
                             <div class="code-header">
-                                <div class="code-title">{{ item.name }}</div>
+                                <div class="code-title-and-toggle">
+                                    <el-button type="text" size="mini" @click="toggleCollapse(index)" :title="getToggleText(index)">{{ item.name }} <i :class="getToggleIcon(index)"></i></el-button>
+                                </div>
                                 <el-button size="mini" @click="copyCode(item.code)">复制代码</el-button>
                             </div>
-                            <div class="code-content">
+                            <div v-show="!isCollapsed(index)" class="code-content">
                                 <pre><code :class="codeLanguageClass" v-html="item.highlightedCode"></code></pre>
                             </div>
                         </div>

@@ -150,6 +150,12 @@ h2 {
     border-bottom: 1px solid #e0e0e0;
 }
 
+.code-title-and-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .code-title {
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 14px;
@@ -157,9 +163,20 @@ h2 {
     color: #333;
 }
 
-.copy-btn {
-    padding: 4px 12px;
-    font-size: 12px;
+.code-title-and-toggle .el-button {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.code-title-and-toggle .el-button i {
+    margin-right: 4px;
+}
+
+.code-actions {
+    display: flex;
+    gap: 8px;
 }
 
 .code-content {

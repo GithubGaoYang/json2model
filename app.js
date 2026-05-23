@@ -12,6 +12,8 @@ new Vue({
         // 转换器实例
         arktsConverter: null,
         swiftConverter: null,
+        // 折叠状态
+        collapsedBlocks: {},
         // 示例JSON
         exampleJson: `{
   "User": {
@@ -109,6 +111,7 @@ new Vue({
         clearInput() {
             this.jsonInput = '';
             this.outputClasses = []; // 同时清空输出区域
+            this.collapsedBlocks = {}; // 重置折叠状态
         },
         
         /**
@@ -123,6 +126,7 @@ new Vue({
          */
         onLanguageChange() {
             this.outputClasses = [];
+            this.collapsedBlocks = {}; // 重置折叠状态
         },
         
         /**
@@ -147,6 +151,9 @@ new Vue({
                     } else if (this.selectedLanguage === 'swift') {
                         result = this.swiftConverter.convert(jsonStr);
                     }
+                    
+                    // 重置折叠状态
+                    this.collapsedBlocks = {};
                     
                     // 处理输出结果
                     this.outputClasses = [
@@ -208,6 +215,34 @@ new Vue({
                 console.error('复制失败:', error);
                 this.$message.error('复制失败，请手动复制');
             }
+        },
+        
+        /**
+         * 切换代码块的折叠状态
+         */
+        toggleCollapse(index) {
+            this.$set(this.collapsedBlocks, index, !this.collapsedBlocks[index]);
+        },
+        
+        /**
+         * 检查代码块是否折叠
+         */
+        isCollapsed(index) {
+            return this.collapsedBlocks[index] || false;
+        },
+        
+        /**
+         * 获取折叠/展开按钮的图标
+         */
+        getToggleIcon(index) {
+            return this.isCollapsed(index) ? 'el-icon-arrow-down' : 'el-icon-arrow-up';
+        },
+        
+        /**
+         * 获取折叠/展开按钮的提示文本
+         */
+        getToggleText(index) {
+            return this.isCollapsed(index) ? '展开' : '收起';
         }
     }
 });
