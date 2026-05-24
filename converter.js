@@ -16,38 +16,56 @@ class JsonToArkTSConverter {
         try {
             this.generatedClasses.clear();
             this.classOrder = [];
-            
+
             const jsonObj = JSON.parse(jsonStr);
-            
-            // 检查是否为空对象
-            if (Object.keys(jsonObj).length === 0) {
-                throw new Error('JSON 对象为空');
-            }
-            
-            // 直接处理整个 JSON 对象，将其作为一个根对象
-            const firstKey = Object.keys(jsonObj)[0];
-            
-            // 如果只有一个根键且其值是对象，使用固定类名Root
-            if (Object.keys(jsonObj).length === 1) {
-                const value = jsonObj[firstKey];
-                if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                    // 标准情况：{ "User": { "name": "...", ... } }
-                    // 固定根类名为Root
-                    const className = 'Root';
-                    this.processObject(value, className);
+
+            // 处理数组输入
+            if (Array.isArray(jsonObj)) {
+                if (jsonObj.length === 0) {
+                    throw new Error('JSON 数组为空');
+                }
+                // 检查数组元素是否都是对象
+                const hasNonObjectElement = jsonObj.some(item => 
+                    typeof item !== 'object' || item === null || Array.isArray(item)
+                );
+                if (hasNonObjectElement) {
+                    throw new Error('JSON 数组元素必须是对象');
+                }
+                // 合并所有数组对象的字段后生成类定义
+                this.processObjectArray(jsonObj, 'RootItem');
+            } else if (typeof jsonObj === 'object' && jsonObj !== null) {
+                // 检查是否为空对象
+                if (Object.keys(jsonObj).length === 0) {
+                    throw new Error('JSON 对象为空');
+                }
+
+                // 直接处理整个 JSON 对象，将其作为一个根对象
+                const firstKey = Object.keys(jsonObj)[0];
+
+                // 如果只有一个根键且其值是对象，使用固定类名Root
+                if (Object.keys(jsonObj).length === 1) {
+                    const value = jsonObj[firstKey];
+                    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                        // 标准情况：{ "User": { "name": "...", ... } }
+                        // 固定根类名为Root
+                        const className = 'Root';
+                        this.processObject(value, className);
+                    } else {
+                        // 非标准情况：{ "code": "200" } -> 创建一个包含该字段的类
+                        this.processObject(jsonObj, this.generateDefaultClassName(jsonObj));
+                    }
                 } else {
-                    // 非标准情况：{ "code": "200" } -> 创建一个包含该字段的类
-                    this.processObject(jsonObj, this.generateDefaultClassName(jsonObj));
+                    // 多个根键：{ "name": "...", "age": 20 } -> 创建一个类包含所有字段
+                    // 固定根类名为Root
+                    this.processObject(jsonObj, 'Root');
                 }
             } else {
-                // 多个根键：{ "name": "...", "age": 20 } -> 创建一个类包含所有字段
-                // 固定根类名为Root
-                this.processObject(jsonObj, 'Root');
+                throw new Error('JSON 必须是对象或数组');
             }
-            
+
             // 生成最终代码
             return this.generateFinalCode();
-            
+
         } catch (error) {
             throw new Error(`JSON 解析失败: ${error.message}`);
         }
@@ -260,8 +278,8 @@ class JsonToArkTSConverter {
 
                 if (nestedElementType === 'object' && nestedFirstElement !== null) {
                     // 嵌套对象数组：数组中的对象数组
-                    const fieldNameSingular = fieldName.replace(/s$/, '');
-                    const nestedClassName = this.toPascalCase(fieldNameSingular);
+                    // 使用原字段名生成类名，避免简单的复数处理导致错误
+                    const nestedClassName = this.toPascalCase(fieldName);
                     // 为嵌套对象数组生成一个更具体的类名
                     const arrayClassName = `${nestedClassName}Item`;
                     // 合并数组中所有对象的字段
@@ -311,9 +329,8 @@ class JsonToArkTSConverter {
             }
 
             if (elementType === 'object' && firstElement !== null) {
-                // 对象数组，移除末尾的 s 并转换为大驼峰命名
-                const fieldNameSingular = fieldName.replace(/s$/, '');
-                const nestedClassName = this.toPascalCase(fieldNameSingular);
+                // 对象数组，使用原字段名生成类名，避免简单的复数处理导致错误
+                const nestedClassName = this.toPascalCase(fieldName);
                 // 为对象数组生成一个更具体的类名，避免与嵌套数组冲突
                 const arrayClassName = `${nestedClassName}Item`;
                 // 合并数组中所有对象的字段
@@ -464,38 +481,56 @@ class JsonToSwiftConverter {
         try {
             this.generatedClasses.clear();
             this.classOrder = [];
-            
+
             const jsonObj = JSON.parse(jsonStr);
-            
-            // 检查是否为空对象
-            if (Object.keys(jsonObj).length === 0) {
-                throw new Error('JSON 对象为空');
-            }
-            
-            // 直接处理整个 JSON 对象，将其作为一个根对象
-            const firstKey = Object.keys(jsonObj)[0];
-            
-            // 如果只有一个根键且其值是对象，使用固定类名Root
-            if (Object.keys(jsonObj).length === 1) {
-                const value = jsonObj[firstKey];
-                if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                    // 标准情况：{ "User": { "name": "...", ... } }
-                    // 固定根类名为Root
-                    const className = 'Root';
-                    this.processObject(value, className);
+
+            // 处理数组输入
+            if (Array.isArray(jsonObj)) {
+                if (jsonObj.length === 0) {
+                    throw new Error('JSON 数组为空');
+                }
+                // 检查数组元素是否都是对象
+                const hasNonObjectElement = jsonObj.some(item => 
+                    typeof item !== 'object' || item === null || Array.isArray(item)
+                );
+                if (hasNonObjectElement) {
+                    throw new Error('JSON 数组元素必须是对象');
+                }
+                // 合并所有数组对象的字段后生成类定义
+                this.processObjectArray(jsonObj, 'RootItem');
+            } else if (typeof jsonObj === 'object' && jsonObj !== null) {
+                // 检查是否为空对象
+                if (Object.keys(jsonObj).length === 0) {
+                    throw new Error('JSON 对象为空');
+                }
+
+                // 直接处理整个 JSON 对象，将其作为一个根对象
+                const firstKey = Object.keys(jsonObj)[0];
+
+                // 如果只有一个根键且其值是对象，使用固定类名Root
+                if (Object.keys(jsonObj).length === 1) {
+                    const value = jsonObj[firstKey];
+                    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                        // 标准情况：{ "User": { "name": "...", ... } }
+                        // 固定根类名为Root
+                        const className = 'Root';
+                        this.processObject(value, className);
+                    } else {
+                        // 非标准情况：{ "code": "200" } -> 创建一个包含该字段的类
+                        this.processObject(jsonObj, this.generateDefaultClassName(jsonObj));
+                    }
                 } else {
-                    // 非标准情况：{ "code": "200" } -> 创建一个包含该字段的类
-                    this.processObject(jsonObj, this.generateDefaultClassName(jsonObj));
+                    // 多个根键：{ "name": "...", "age": 20 } -> 创建一个类包含所有字段
+                    // 固定根类名为Root
+                    this.processObject(jsonObj, 'Root');
                 }
             } else {
-                // 多个根键：{ "name": "...", "age": 20 } -> 创建一个类包含所有字段
-                // 固定根类名为Root
-                this.processObject(jsonObj, 'Root');
+                throw new Error('JSON 必须是对象或数组');
             }
-            
+
             // 生成最终代码
             return this.generateFinalCode();
-            
+
         } catch (error) {
             throw new Error(`JSON 解析失败: ${error.message}`);
         }
@@ -729,8 +764,8 @@ class JsonToSwiftConverter {
 
                 if (nestedElementType === 'object' && nestedFirstElement !== null) {
                     // 嵌套对象数组：数组中的对象数组
-                    const fieldNameSingular = fieldName.replace(/s$/, '');
-                    const nestedClassName = this.toPascalCase(fieldNameSingular);
+                    // 使用原字段名生成类名，避免简单的复数处理导致错误
+                    const nestedClassName = this.toPascalCase(fieldName);
                     // 为嵌套对象数组生成一个更具体的类名
                     const arrayClassName = `${nestedClassName}Item`;
                     // 合并数组中所有对象的字段
@@ -794,9 +829,8 @@ class JsonToSwiftConverter {
             }
 
             if (elementType === 'object' && firstElement !== null) {
-                // 对象数组，移除末尾的 s 并转换为大驼峰命名
-                const fieldNameSingular = fieldName.replace(/s$/, '');
-                const nestedClassName = this.toPascalCase(fieldNameSingular);
+                // 对象数组，使用原字段名生成类名，避免简单的复数处理导致错误
+                const nestedClassName = this.toPascalCase(fieldName);
                 // 为对象数组生成一个更具体的类名，避免与嵌套数组冲突
                 const arrayClassName = `${nestedClassName}Item`;
                 // 合并数组中所有对象的字段
