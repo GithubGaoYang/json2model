@@ -1,605 +1,99 @@
 /**
- * JSON 转 ArkTS Model 转换器
+ * JSON 转换器基类
+ * 提供通用的 JSON 解析和类生成逻辑
  */
-class JsonToArkTSConverter {
+class JsonConverterBase {
     constructor() {
-        this.generatedClasses = new Map(); // 存储已生成的类定义
-        this.classOrder = []; // 记录类生成顺序
+        this.generatedClasses = new Map();
+        this.classOrder = [];
     }
 
     /**
-     * 转换 JSON 到 ArkTS Model
+     * 转换 JSON 到 Model
      * @param {string} jsonStr - JSON 字符串
-     * @returns {string} - ArkTS Model 代码
-     */
-    convert(jsonStr) {
-        try {
-            this.generatedClasses.clear();
-            this.classOrder = [];
-
-            const jsonObj = JSON.parse(jsonStr);
-
-            // 处理数组输入
-            if (Array.isArray(jsonObj)) {
-                if (jsonObj.length === 0) {
-                    throw new Error('JSON 数组为空');
-                }
-                // 检查数组元素是否都是对象
-                const hasNonObjectElement = jsonObj.some(item => 
-                    typeof item !== 'object' || item === null || Array.isArray(item)
-                );
-                if (hasNonObjectElement) {
-                    throw new Error('JSON 数组元素必须是对象');
-                }
-                // 合并所有数组对象的字段后生成类定义
-                this.processObjectArray(jsonObj, 'RootItem');
-            } else if (typeof jsonObj === 'object' && jsonObj !== null) {
-                // 检查是否为空对象
-                if (Object.keys(jsonObj).length === 0) {
-                    throw new Error('JSON 对象为空');
-                }
-
-                // 直接处理整个 JSON 对象，将其作为一个根对象
-                const firstKey = Object.keys(jsonObj)[0];
-
-                // 如果只有一个根键且其值是对象，使用固定类名Root
-                if (Object.keys(jsonObj).length === 1) {
-                    const value = jsonObj[firstKey];
-                    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                        // 标准情况：{ "User": { "name": "...", ... } }
-                        // 固定根类名为Root
-                        const className = 'Root';
-                        this.processObject(value, className);
-                    } else {
-                        // 非标准情况：{ "code": "200" } -> 创建一个包含该字段的类
-                        this.processObject(jsonObj, this.generateDefaultClassName(jsonObj));
-                    }
-                } else {
-                    // 多个根键：{ "name": "...", "age": 20 } -> 创建一个类包含所有字段
-                    // 固定根类名为Root
-                    this.processObject(jsonObj, 'Root');
-                }
-            } else {
-                throw new Error('JSON 必须是对象或数组');
-            }
-
-            // 生成最终代码
-            return this.generateFinalCode();
-
-        } catch (error) {
-            throw new Error(`JSON 解析失败: ${error.message}`);
-        }
-    }
-
-    /**
-     * 生成默认类名
-     * @param {Object} obj - JSON 对象
-     * @returns {string} - 类名
-     */
-    generateDefaultClassName(obj) {
-        // 使用第一个 key 转换为大驼峰命名作为类名
-        const firstKey = Object.keys(obj)[0];
-        return this.toPascalCase(firstKey);
-    }
-
-    /**
-     * 合并数组中所有对象的字段，生成完整的字段集合
-     * @param {Array} array - 对象数组
-     * @returns {Object} - 合并后的字段对象
-     */
-    mergeArrayObjectsFields(array) {
-        const mergedFields = {};
-
-        array.forEach(obj => {
-            if (typeof obj === 'object' && obj !== null) {
-                Object.keys(obj).forEach(key => {
-                    if (!mergedFields.hasOwnProperty(key)) {
-                        mergedFields[key] = obj[key];
-                    }
-                });
-            }
-        });
-
-        return mergedFields;
-    }
-
-    /**
-     * 处理对象，生成类定义
-     * @param {Object} obj - 要处理的对象
-     * @param {string} className - 类名
-     * @returns {string} - 类名
-     */
-    processObject(obj, className) {
-        if (this.generatedClasses.has(className)) {
-            return className;
-        }
-
-        const fields = [];
-        const fieldNames = Object.keys(obj).sort(); // 按字母顺序排序
-
-        fieldNames.forEach(fieldName => {
-            const value = obj[fieldName];
-            const fieldType = this.getFieldType(value, fieldName);
-            fields.push({
-                name: fieldName,
-                type: fieldType.type,
-                typeName: fieldType.typeName,
-                isOptional: fieldType.isOptional,
-                defaultValue: fieldType.defaultValue
-            });
-        });
-
-        this.generatedClasses.set(className, fields);
-        this.classOrder.push(className);
-
-        return className;
-    }
-
-    /**
-     * 处理对象数组，合并所有对象的字段后生成类定义
-     * @param {Array} array - 对象数组
-     * @param {string} className - 类名
-     * @returns {string} - 类名
-     */
-    processObjectArray(array, className) {
-        if (this.generatedClasses.has(className)) {
-            return className;
-        }
-
-        // 合并数组中所有对象的字段
-        const mergedObj = this.mergeArrayObjectsFields(array);
-
-        const fields = [];
-        const fieldNames = Object.keys(mergedObj).sort(); // 按字母顺序排序
-
-        fieldNames.forEach(fieldName => {
-            const value = mergedObj[fieldName];
-            const fieldType = this.getFieldType(value, fieldName);
-            fields.push({
-                name: fieldName,
-                type: fieldType.type,
-                typeName: fieldType.typeName,
-                isOptional: fieldType.isOptional,
-                defaultValue: fieldType.defaultValue
-            });
-        });
-
-        this.generatedClasses.set(className, fields);
-        this.classOrder.push(className);
-
-        return className;
-    }
-
-    /**
-     * 获取字段类型信息
-     * @param {any} value - 字段值
-     * @param {string} fieldName - 字段名
-     * @returns {Object} - 类型信息
-     */
-    getFieldType(value, fieldName) {
-        if (value === null || value === undefined) {
-            // null 或 undefined 作为字符串处理
-            return {
-                type: 'String',
-                typeName: 'string',
-                isOptional: false,
-                defaultValue: "''"
-            };
-        }
-
-        const type = typeof value;
-
-        // 字符串类型
-        if (type === 'string') {
-            return {
-                type: 'String',
-                typeName: 'string',
-                isOptional: false,
-                defaultValue: "''"
-            };
-        }
-
-        // 数字类型
-        if (type === 'number') {
-            return {
-                type: 'Number',
-                typeName: 'number',
-                isOptional: false,
-                defaultValue: '0'
-            };
-        }
-
-        // 布尔类型
-        if (type === 'boolean') {
-            return {
-                type: 'Boolean',
-                typeName: 'boolean',
-                isOptional: false,
-                defaultValue: 'false'
-            };
-        }
-
-        // 数组类型
-        if (Array.isArray(value)) {
-            if (value.length === 0) {
-                // 空数组，默认为字符串数组
-                return {
-                    type: 'String',
-                    typeName: 'string[]',
-                    isOptional: false,
-                    defaultValue: '[]'
-                };
-            }
-
-            const firstElement = value[0];
-            const elementType = typeof firstElement;
-
-            // 处理嵌套数组：数组中的数组
-            if (Array.isArray(firstElement)) {
-                if (firstElement.length === 0) {
-                    // 嵌套空数组，使用字符串数组的数组
-                    return {
-                        type: 'String',
-                        typeName: 'string[][]',
-                        isOptional: false,
-                        defaultValue: '[]'
-                    };
-                }
-
-                const nestedFirstElement = firstElement[0];
-                const nestedElementType = typeof nestedFirstElement;
-
-                if (nestedElementType === 'string') {
-                    return {
-                        type: 'String',
-                        typeName: 'string[][]',
-                        isOptional: false,
-                        defaultValue: '[]'
-                    };
-                }
-
-                if (nestedElementType === 'number') {
-                    return {
-                        type: 'Number',
-                        typeName: 'number[][]',
-                        isOptional: false,
-                        defaultValue: '[]'
-                    };
-                }
-
-                if (nestedElementType === 'boolean') {
-                    return {
-                        type: 'Boolean',
-                        typeName: 'boolean[][]',
-                        isOptional: false,
-                        defaultValue: '[]'
-                    };
-                }
-
-                if (nestedElementType === 'object' && nestedFirstElement !== null) {
-                    // 嵌套对象数组：数组中的对象数组
-                    // 使用原字段名生成类名，避免简单的复数处理导致错误
-                    const nestedClassName = this.toPascalCase(fieldName);
-                    // 为嵌套对象数组生成一个更具体的类名
-                    const arrayClassName = `${nestedClassName}Item`;
-                    // 合并数组中所有对象的字段
-                    this.processObjectArray(firstElement, arrayClassName);
-                    return {
-                        type: arrayClassName,
-                        typeName: `${arrayClassName}[][]`,
-                        isOptional: false,
-                        defaultValue: '[]'
-                    };
-                }
-
-                // 默认嵌套数组类型
-                return {
-                    type: 'String',
-                    typeName: 'string[][]',
-                    isOptional: false,
-                    defaultValue: '[]'
-                };
-            }
-
-            if (elementType === 'string') {
-                return {
-                    type: 'String',
-                    typeName: 'string[]',
-                    isOptional: false,
-                    defaultValue: '[]'
-                };
-            }
-
-            if (elementType === 'number') {
-                return {
-                    type: 'Number',
-                    typeName: 'number[]',
-                    isOptional: false,
-                    defaultValue: '[]'
-                };
-            }
-
-            if (elementType === 'boolean') {
-                return {
-                    type: 'Boolean',
-                    typeName: 'boolean[]',
-                    isOptional: false,
-                    defaultValue: '[]'
-                };
-            }
-
-            if (elementType === 'object' && firstElement !== null) {
-                // 对象数组，使用原字段名生成类名，避免简单的复数处理导致错误
-                const nestedClassName = this.toPascalCase(fieldName);
-                // 为对象数组生成一个更具体的类名，避免与嵌套数组冲突
-                const arrayClassName = `${nestedClassName}Item`;
-                // 合并数组中所有对象的字段
-                this.processObjectArray(value, arrayClassName);
-                return {
-                    type: arrayClassName,
-                    typeName: `${arrayClassName}[]`,
-                    isOptional: false,
-                    defaultValue: '[]'
-                };
-            }
-
-            // 默认为字符串数组
-            return {
-                type: 'String',
-                typeName: 'string[]',
-                isOptional: false,
-                defaultValue: '[]'
-            };
-        }
-
-        // 对象类型（嵌套对象）
-        if (type === 'object') {
-            const nestedClassName = this.toPascalCase(fieldName);
-            this.processObject(value, nestedClassName);
-            return {
-                type: nestedClassName,
-                typeName: nestedClassName,
-                isOptional: true, // 嵌套对象为可选
-                defaultValue: 'undefined'
-            };
-        }
-
-        // 默认类型
-        return {
-            type: 'String',
-            typeName: 'string',
-            isOptional: false,
-            defaultValue: "''"
-        };
-    }
-
-    /**
-     * 转换为大驼峰命名（PascalCase）
-     * @param {string} str - 原始字符串
-     * @returns {string} - 大驼峰命名的字符串
-     */
-    toPascalCase(str) {
-        if (!str) return str;
-        
-        // 处理下划线、连字符、空格分隔的字符串
-        return str
-            .split(/[_\-\s]+/) // 按下划线、连字符、空格分割
-            .map(word => {
-                if (!word) return '';
-                // 每个单词首字母大写
-                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-            })
-            .join('');
-    }
-
-    /**
-     * 首字母大写（帕斯卡命名法）
-     * @param {string} str - 原始字符串
-     * @returns {string} - 首字母大写的字符串
-     */
-    capitalizeFirstLetter(str) {
-        if (!str) return str;
-        return str.charAt(0).toUpperCase() + str.slice(1);
-    }
-
-    /**
-     * 生成类的代码
-     * @param {string} className - 类名
-     * @param {Array} fields - 字段列表
-     * @returns {string} - 类代码
-     */
-    generateClassCode(className, fields) {
-        let code = `export class ${className} {\n`;
-
-        fields.forEach((field, index) => {
-            const { name, type, typeName, isOptional, defaultValue } = field;
-            
-            // 添加装饰器
-            code += `  @Type(() => ${type})\n`;
-            code += `  @Transform((params) => params.value ?? ${defaultValue})\n`;
-            
-            // 添加字段定义
-            if (isOptional) {
-                code += `  ${name}?: ${typeName};\n`;
-            } else {
-                code += `  ${name}: ${typeName} = ${defaultValue};\n`;
-            }
-            
-            // 只在非最后一个字段后添加空行
-            if (index < fields.length - 1) {
-                code += '\n';
-            }
-        });
-
-        code += '}\n';
-        return code;
-    }
-
-    /**
-     * 生成最终代码
      * @returns {Object} - 包含导入语句和类列表的对象
      */
-    generateFinalCode() {
-        const importStatement = "import { Type, Transform } from 'class-transformer';";
-        
-        // 按生成顺序的反序输出类（嵌套类在前，根类在后）
-        const reversedOrder = [...this.classOrder].reverse();
-        
-        const classes = reversedOrder.map(className => {
-            const fields = this.generatedClasses.get(className);
-            return {
-                name: className,
-                code: this.generateClassCode(className, fields)
-            };
-        });
-
-        return {
-            importStatement,
-            classes
-        };
-    }
-}
-
-// 导出转换器实例
-window.JsonToArkTSConverter = JsonToArkTSConverter;
-
-/**
- * JSON 转 Swift Model 转换器
- */
-class JsonToSwiftConverter {
-    constructor() {
-        this.generatedClasses = new Map(); // 存储已生成的类定义
-        this.classOrder = []; // 记录类生成顺序
-    }
-
-    /**
-     * 转换 JSON 到 Swift Model
-     * @param {string} jsonStr - JSON 字符串
-     * @returns {string} - Swift Model 代码
-     */
     convert(jsonStr) {
         try {
             this.generatedClasses.clear();
             this.classOrder = [];
 
             const jsonObj = JSON.parse(jsonStr);
+            this._processRootValue(jsonObj);
 
-            // 处理数组输入
-            if (Array.isArray(jsonObj)) {
-                if (jsonObj.length === 0) {
-                    throw new Error('JSON 数组为空');
-                }
-                // 检查数组元素是否都是对象
-                const hasNonObjectElement = jsonObj.some(item => 
-                    typeof item !== 'object' || item === null || Array.isArray(item)
-                );
-                if (hasNonObjectElement) {
-                    throw new Error('JSON 数组元素必须是对象');
-                }
-                // 合并所有数组对象的字段后生成类定义
-                this.processObjectArray(jsonObj, 'RootItem');
-            } else if (typeof jsonObj === 'object' && jsonObj !== null) {
-                // 检查是否为空对象
-                if (Object.keys(jsonObj).length === 0) {
-                    throw new Error('JSON 对象为空');
-                }
-
-                // 直接处理整个 JSON 对象，将其作为一个根对象
-                const firstKey = Object.keys(jsonObj)[0];
-
-                // 如果只有一个根键且其值是对象，使用固定类名Root
-                if (Object.keys(jsonObj).length === 1) {
-                    const value = jsonObj[firstKey];
-                    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                        // 标准情况：{ "User": { "name": "...", ... } }
-                        // 固定根类名为Root
-                        const className = 'Root';
-                        this.processObject(value, className);
-                    } else {
-                        // 非标准情况：{ "code": "200" } -> 创建一个包含该字段的类
-                        this.processObject(jsonObj, this.generateDefaultClassName(jsonObj));
-                    }
-                } else {
-                    // 多个根键：{ "name": "...", "age": 20 } -> 创建一个类包含所有字段
-                    // 固定根类名为Root
-                    this.processObject(jsonObj, 'Root');
-                }
-            } else {
-                throw new Error('JSON 必须是对象或数组');
-            }
-
-            // 生成最终代码
-            return this.generateFinalCode();
-
+            return this._generateOutput();
         } catch (error) {
             throw new Error(`JSON 解析失败: ${error.message}`);
         }
     }
 
     /**
-     * 生成默认类名
-     * @param {Object} obj - JSON 对象
-     * @returns {string} - 类名
+     * 处理根值（对象或数组）
+     * @private
      */
-    generateDefaultClassName(obj) {
-        // 使用第一个 key 转换为大驼峰命名作为类名
-        const firstKey = Object.keys(obj)[0];
-        return this.toPascalCase(firstKey);
+    _processRootValue(jsonObj) {
+        if (Array.isArray(jsonObj)) {
+            this._processRootArray(jsonObj);
+        } else if (typeof jsonObj === 'object' && jsonObj !== null) {
+            this._processRootObject(jsonObj);
+        } else {
+            throw new Error('JSON 必须是对象或数组');
+        }
     }
 
     /**
-     * 合并数组中所有对象的字段，生成完整的字段集合
-     * @param {Array} array - 对象数组
-     * @returns {Object} - 合并后的字段对象
+     * 处理根数组
+     * @private
      */
-    mergeArrayObjectsFields(array) {
-        const mergedFields = {};
+    _processRootArray(array) {
+        if (array.length === 0) {
+            throw new Error('JSON 数组为空');
+        }
+        if (array.some(item => typeof item !== 'object' || item === null || Array.isArray(item))) {
+            throw new Error('JSON 数组元素必须是对象');
+        }
+        this.processObjectArray(array, 'RootItem');
+    }
 
-        array.forEach(obj => {
-            if (typeof obj === 'object' && obj !== null) {
-                Object.keys(obj).forEach(key => {
-                    if (!mergedFields.hasOwnProperty(key)) {
-                        mergedFields[key] = obj[key];
-                    }
-                });
-            }
-        });
+    /**
+     * 处理根对象
+     * @private
+     */
+    _processRootObject(obj) {
+        if (Object.keys(obj).length === 0) {
+            throw new Error('JSON 对象为空');
+        }
 
-        return mergedFields;
+        const keys = Object.keys(obj);
+        const firstKey = keys[0];
+        const firstValue = obj[firstKey];
+
+        if (keys.length === 1 && this._isPlainObject(firstValue)) {
+            // 标准情况：{ "User": { ... } }
+            this.processObject(firstValue, 'Root');
+        } else {
+            // 其他情况：直接使用根对象
+            this.processObject(obj, 'Root');
+        }
+    }
+
+    /**
+     * 检查值是否为纯对象（非数组）
+     * @private
+     */
+    _isPlainObject(value) {
+        return typeof value === 'object' && value !== null && !Array.isArray(value);
     }
 
     /**
      * 处理对象，生成类定义
-     * @param {Object} obj - 要处理的对象
-     * @param {string} className - 类名
-     * @returns {string} - 类名
      */
     processObject(obj, className) {
         if (this.generatedClasses.has(className)) {
             return className;
         }
 
-        const fields = [];
-        const fieldNames = Object.keys(obj).sort(); // 按字母顺序排序
-
-        fieldNames.forEach(fieldName => {
-            const value = obj[fieldName];
-            const fieldType = this.getFieldType(value, fieldName);
-            fields.push({
-                name: fieldName,
-                type: fieldType.type,
-                defaultValue: fieldType.defaultValue,
-                jsonMethod: fieldType.jsonMethod,
-                isArray: fieldType.isArray,
-                isObjectArray: fieldType.isObjectArray,
-                isNestedObject: fieldType.isNestedObject,
-                isNestedArray: fieldType.isNestedArray,
-                elementType: fieldType.elementType,
-                elementJsonMethod: fieldType.elementJsonMethod,
-                nestedClassName: fieldType.nestedClassName
-            });
-        });
-
+        const fields = this._extractFields(obj);
         this.generatedClasses.set(className, fields);
         this.classOrder.push(className);
 
@@ -608,39 +102,14 @@ class JsonToSwiftConverter {
 
     /**
      * 处理对象数组，合并所有对象的字段后生成类定义
-     * @param {Array} array - 对象数组
-     * @param {string} className - 类名
-     * @returns {string} - 类名
      */
     processObjectArray(array, className) {
         if (this.generatedClasses.has(className)) {
             return className;
         }
 
-        // 合并数组中所有对象的字段
-        const mergedObj = this.mergeArrayObjectsFields(array);
-
-        const fields = [];
-        const fieldNames = Object.keys(mergedObj).sort(); // 按字母顺序排序
-
-        fieldNames.forEach(fieldName => {
-            const value = mergedObj[fieldName];
-            const fieldType = this.getFieldType(value, fieldName);
-            fields.push({
-                name: fieldName,
-                type: fieldType.type,
-                defaultValue: fieldType.defaultValue,
-                jsonMethod: fieldType.jsonMethod,
-                isArray: fieldType.isArray,
-                isObjectArray: fieldType.isObjectArray,
-                isNestedObject: fieldType.isNestedObject,
-                isNestedArray: fieldType.isNestedArray,
-                elementType: fieldType.elementType,
-                elementJsonMethod: fieldType.elementJsonMethod,
-                nestedClassName: fieldType.nestedClassName
-            });
-        });
-
+        const mergedObj = this._mergeArrayFields(array);
+        const fields = this._extractFields(mergedObj);
         this.generatedClasses.set(className, fields);
         this.classOrder.push(className);
 
@@ -648,371 +117,449 @@ class JsonToSwiftConverter {
     }
 
     /**
-     * 获取字段类型信息
-     * @param {any} value - 字段值
-     * @param {string} fieldName - 字段名
-     * @returns {Object} - 类型信息
+     * 从对象中提取字段信息
+     * @private
      */
-    getFieldType(value, fieldName) {
-        if (value === null || value === undefined) {
-            // null 或 undefined 作为可选字符串处理
-            return {
-                type: 'String',
-                defaultValue: '""',
-                jsonMethod: 'stringValue'
-            };
-        }
+    _extractFields(obj) {
+        return Object.keys(obj).sort().map(fieldName => {
+            const value = obj[fieldName];
+            const fieldInfo = this._getFieldInfo(value, fieldName);
+            return { name: fieldName, ...fieldInfo };
+        });
+    }
 
-        const type = typeof value;
-
-        // 字符串类型
-        if (type === 'string') {
-            return {
-                type: 'String',
-                defaultValue: '""',
-                jsonMethod: 'stringValue'
-            };
-        }
-
-        // 数字类型（Swift 区分 Int 和 Double）
-        if (type === 'number') {
-            const isInteger = Number.isInteger(value);
-            return {
-                type: isInteger ? 'Int' : 'Double',
-                defaultValue: isInteger ? '0' : '0.0',
-                jsonMethod: isInteger ? 'intValue' : 'doubleValue'
-            };
-        }
-
-        // 布尔类型
-        if (type === 'boolean') {
-            return {
-                type: 'Bool',
-                defaultValue: 'false',
-                jsonMethod: 'boolValue'
-            };
-        }
-
-        // 数组类型
-        if (Array.isArray(value)) {
-            if (value.length === 0) {
-                // 空数组，默认为字符串数组
-                return {
-                    type: '[String]',
-                    defaultValue: '[String]()',
-                    jsonMethod: 'arrayValue',
-                    isArray: true,
-                    elementType: 'String',
-                    elementJsonMethod: 'stringValue'
-                };
+    /**
+     * 合并数组中所有对象的字段
+     * @private
+     */
+    _mergeArrayFields(array) {
+        const merged = {};
+        array.forEach(obj => {
+            if (this._isPlainObject(obj)) {
+                Object.keys(obj).forEach(key => {
+                    if (!merged.hasOwnProperty(key)) {
+                        merged[key] = obj[key];
+                    }
+                });
             }
+        });
+        return merged;
+    }
 
-            const firstElement = value[0];
-            const elementType = typeof firstElement;
+    /**
+     * 获取字段类型信息（子类实现）
+     * @abstract
+     */
+    _getFieldInfo(value, fieldName) {
+        throw new Error('_getFieldInfo 必须由子类实现');
+    }
 
-            // 处理嵌套数组：数组中的数组
-            if (Array.isArray(firstElement)) {
-                if (firstElement.length === 0) {
-                    // 嵌套空数组，使用字符串数组的数组
-                    return {
-                        type: '[[String]]',
-                        defaultValue: '[[String]]()',
-                        jsonMethod: 'arrayValue',
-                        isArray: true,
-                        elementType: '[String]',
-                        elementJsonMethod: 'arrayValue'
-                    };
-                }
-
-                const nestedFirstElement = firstElement[0];
-                const nestedElementType = typeof nestedFirstElement;
-
-                if (nestedElementType === 'string') {
-                    return {
-                        type: '[[String]]',
-                        defaultValue: '[[String]]()',
-                        jsonMethod: 'arrayValue',
-                        isArray: true,
-                        elementType: '[String]',
-                        elementJsonMethod: 'arrayValue'
-                    };
-                }
-
-                if (nestedElementType === 'number') {
-                    const isInteger = Number.isInteger(nestedFirstElement);
-                    const arrayType = isInteger ? 'Int' : 'Double';
-                    return {
-                        type: `[[${arrayType}]]`,
-                        defaultValue: `[[${arrayType}]]()`,
-                        jsonMethod: 'arrayValue',
-                        isArray: true,
-                        elementType: `[${arrayType}]`,
-                        elementJsonMethod: 'arrayValue'
-                    };
-                }
-
-                if (nestedElementType === 'boolean') {
-                    return {
-                        type: '[[Bool]]',
-                        defaultValue: '[[Bool]]()',
-                        jsonMethod: 'arrayValue',
-                        isArray: true,
-                        elementType: '[Bool]',
-                        elementJsonMethod: 'arrayValue'
-                    };
-                }
-
-                if (nestedElementType === 'object' && nestedFirstElement !== null) {
-                    // 嵌套对象数组：数组中的对象数组
-                    // 使用原字段名生成类名，避免简单的复数处理导致错误
-                    const nestedClassName = this.toPascalCase(fieldName);
-                    // 为嵌套对象数组生成一个更具体的类名
-                    const arrayClassName = `${nestedClassName}Item`;
-                    // 合并数组中所有对象的字段
-                    this.processObjectArray(firstElement, arrayClassName);
-                    return {
-                        type: `[[${arrayClassName}]]`,
-                        defaultValue: `[[${arrayClassName}]]()`,
-                        jsonMethod: 'arrayValue',
-                        isArray: true,
-                        isObjectArray: true,
-                        isNestedArray: true,
-                        elementType: arrayClassName,
-                        elementJsonMethod: 'dictionaryValue'
-                    };
-                }
-
-                // 默认嵌套数组类型
-                return {
-                    type: '[[String]]',
-                    defaultValue: '[[String]]()',
-                    jsonMethod: 'arrayValue',
-                    isArray: true,
-                    elementType: '[String]',
-                    elementJsonMethod: 'arrayValue'
-                };
-            }
-
-            if (elementType === 'string') {
-                return {
-                    type: '[String]',
-                    defaultValue: '[String]()',
-                    jsonMethod: 'arrayValue',
-                    isArray: true,
-                    elementType: 'String',
-                    elementJsonMethod: 'stringValue'
-                };
-            }
-
-            if (elementType === 'number') {
-                const isInteger = Number.isInteger(firstElement);
-                const arrayType = isInteger ? 'Int' : 'Double';
-                return {
-                    type: `[${arrayType}]`,
-                    defaultValue: `[${arrayType}]()`,
-                    jsonMethod: 'arrayValue',
-                    isArray: true,
-                    elementType: arrayType,
-                    elementJsonMethod: isInteger ? 'intValue' : 'doubleValue'
-                };
-            }
-
-            if (elementType === 'boolean') {
-                return {
-                    type: '[Bool]',
-                    defaultValue: '[Bool]()',
-                    jsonMethod: 'arrayValue',
-                    isArray: true,
-                    elementType: 'Bool',
-                    elementJsonMethod: 'boolValue'
-                };
-            }
-
-            if (elementType === 'object' && firstElement !== null) {
-                // 对象数组，使用原字段名生成类名，避免简单的复数处理导致错误
-                const nestedClassName = this.toPascalCase(fieldName);
-                // 为对象数组生成一个更具体的类名，避免与嵌套数组冲突
-                const arrayClassName = `${nestedClassName}Item`;
-                // 合并数组中所有对象的字段
-                this.processObjectArray(value, arrayClassName);
-                return {
-                    type: `[${arrayClassName}]`,
-                    defaultValue: `[${arrayClassName}]()`,
-                    jsonMethod: 'arrayValue',
-                    isArray: true,
-                    isObjectArray: true,
-                    elementType: arrayClassName
-                };
-            }
-
-            // 默认为字符串数组
-            return {
-                type: '[String]',
-                defaultValue: '[String]()',
-                jsonMethod: 'arrayValue',
-                isArray: true,
-                elementType: 'String',
-                elementJsonMethod: 'stringValue'
-            };
-        }
-
-        // 对象类型（嵌套对象）
-        if (type === 'object') {
-            const nestedClassName = this.toPascalCase(fieldName);
-            this.processObject(value, nestedClassName);
-            return {
-                type: nestedClassName + '?',
-                defaultValue: null,  // 嵌套对象不使用 = nil，而是用类型声明
-                jsonMethod: 'dictionaryValue',
-                isNestedObject: true,
-                nestedClassName: nestedClassName
-            };
-        }
-
-        // 默认类型
-        return {
-            type: 'String',
-            defaultValue: '""',
-            jsonMethod: 'stringValue'
-        };
+    /**
+     * 生成输出（子类实现）
+     * @abstract
+     */
+    _generateOutput() {
+        throw new Error('_generateOutput 必须由子类实现');
     }
 
     /**
      * 转换为大驼峰命名（PascalCase）
-     * @param {string} str - 原始字符串
-     * @returns {string} - 大驼峰命名的字符串
      */
     toPascalCase(str) {
         if (!str) return str;
-        
-        // 处理下划线、连字符、空格分隔的字符串
         return str
-            .split(/[_\-\s]+/) // 按下划线、连字符、空格分割
-            .map(word => {
-                if (!word) return '';
-                // 每个单词首字母大写
-                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-            })
+            .split(/[_\-\s]+/)
+            .map(word => word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : '')
             .join('');
     }
 
     /**
      * 转换为小驼峰命名（camelCase）
-     * @param {string} str - 原始字符串
-     * @returns {string} - 小驼峰命名的字符串
      */
     toCamelCase(str) {
         if (!str) return str;
-        
-        // 处理下划线、连字符、空格分隔的字符串
-        const parts = str.split(/[_\-\s]+/);
-        return parts
+        return str
+            .split(/[_\-\s]+/)
             .map((word, index) => {
                 if (!word) return '';
-                if (index === 0) {
-                    // 首个单词全小写
-                    return word.toLowerCase();
-                }
-                // 其他单词首字母大写
-                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+                return index === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
             })
             .join('');
+    }
+}
+
+/**
+ * JSON 转 ArkTS Model 转换器
+ */
+class JsonToArkTSConverter extends JsonConverterBase {
+    /**
+     * 获取 ArkTS 字段类型信息
+     */
+    _getFieldInfo(value, fieldName) {
+        const typeHandlers = [
+            { check: v => v === null || v === undefined, get: () => ({ type: 'String', typeName: 'string', isOptional: false, defaultValue: "''" }) },
+            { check: v => typeof v === 'string', get: () => ({ type: 'String', typeName: 'string', isOptional: false, defaultValue: "''" }) },
+            { check: v => typeof v === 'number', get: () => ({ type: 'Number', typeName: 'number', isOptional: false, defaultValue: '0' }) },
+            { check: v => typeof v === 'boolean', get: () => ({ type: 'Boolean', typeName: 'boolean', isOptional: false, defaultValue: 'false' }) },
+            { check: v => Array.isArray(v), get: v => this._getArrayTypeInfo(v, fieldName) },
+            { check: v => typeof v === 'object', get: v => this._getObjectTypeInfo(v, fieldName) }
+        ];
+
+        const handler = typeHandlers.find(h => h.check(value));
+        return handler ? handler.get(value) : { type: 'String', typeName: 'string', isOptional: false, defaultValue: "''" };
+    }
+
+    /**
+     * 获取数组类型信息
+     * @private
+     */
+    _getArrayTypeInfo(array, fieldName) {
+        if (array.length === 0) {
+            return { type: 'String', typeName: 'string[]', isOptional: false, defaultValue: '[]' };
+        }
+
+        const firstElement = array[0];
+
+        // 嵌套数组
+        if (Array.isArray(firstElement)) {
+            return this._getNestedArrayTypeInfo(firstElement, fieldName);
+        }
+
+        // 一维数组
+        return this._getSimpleArrayTypeInfo(array, firstElement, fieldName);
+    }
+
+    /**
+     * 获取嵌套数组类型信息
+     * @private
+     */
+    _getNestedArrayTypeInfo(nestedArray, fieldName) {
+        if (nestedArray.length === 0) {
+            return { type: 'String', typeName: 'string[][]', isOptional: false, defaultValue: '[]' };
+        }
+
+        const firstElement = nestedArray[0];
+        const elementType = typeof firstElement;
+
+        const typeMap = {
+            string: { type: 'String', typeName: 'string[][]' },
+            number: { type: 'Number', typeName: 'number[][]' },
+            boolean: { type: 'Boolean', typeName: 'boolean[][]' }
+        };
+
+        if (typeMap[elementType]) {
+            return { ...typeMap[elementType], isOptional: false, defaultValue: '[]' };
+        }
+
+        if (elementType === 'object' && firstElement !== null) {
+            const className = this._processObjectArrayAndGetClassName(nestedArray, fieldName);
+            return { type: className, typeName: `${className}[][]`, isOptional: false, defaultValue: '[]' };
+        }
+
+        return { type: 'String', typeName: 'string[][]', isOptional: false, defaultValue: '[]' };
+    }
+
+    /**
+     * 获取简单数组类型信息
+     * @private
+     */
+    _getSimpleArrayTypeInfo(array, firstElement, fieldName) {
+        const elementType = typeof firstElement;
+
+        const typeMap = {
+            string: { type: 'String', typeName: 'string[]' },
+            number: { type: 'Number', typeName: 'number[]' },
+            boolean: { type: 'Boolean', typeName: 'boolean[]' }
+        };
+
+        if (typeMap[elementType]) {
+            return { ...typeMap[elementType], isOptional: false, defaultValue: '[]' };
+        }
+
+        if (elementType === 'object' && firstElement !== null) {
+            const className = this._processObjectArrayAndGetClassName(array, fieldName);
+            return { type: className, typeName: `${className}[]`, isOptional: false, defaultValue: '[]' };
+        }
+
+        return { type: 'String', typeName: 'string[]', isOptional: false, defaultValue: '[]' };
+    }
+
+    /**
+     * 处理对象数组并返回类名
+     * @private
+     */
+    _processObjectArrayAndGetClassName(array, fieldName) {
+        const nestedClassName = this.toPascalCase(fieldName);
+        const arrayClassName = `${nestedClassName}Item`;
+        this.processObjectArray(array, arrayClassName);
+        return arrayClassName;
+    }
+
+    /**
+     * 获取对象类型信息
+     * @private
+     */
+    _getObjectTypeInfo(obj, fieldName) {
+        const nestedClassName = this.toPascalCase(fieldName);
+        this.processObject(obj, nestedClassName);
+        return { type: nestedClassName, typeName: nestedClassName, isOptional: true, defaultValue: 'undefined' };
+    }
+
+    /**
+     * 生成 ArkTS 输出
+     */
+    _generateOutput() {
+        const importStatement = "import { Type, Transform } from 'class-transformer';";
+        const classes = this._generateClasses();
+        return { importStatement, classes };
+    }
+
+    /**
+     * 生成类代码列表
+     * @private
+     */
+    _generateClasses() {
+        return [...this.classOrder].reverse().map(className => ({
+            name: className,
+            code: this._generateClassCode(className, this.generatedClasses.get(className))
+        }));
+    }
+
+    /**
+     * 生成单个类的代码
+     * @private
+     */
+    _generateClassCode(className, fields) {
+        const fieldCodes = fields.map((field, index) => {
+            const fieldCode = this._generateFieldCode(field);
+            return index < fields.length - 1 ? fieldCode + '\n' : fieldCode;
+        });
+
+        return `export class ${className} {\n${fieldCodes.join('')}\n}\n`;
+    }
+
+    /**
+     * 生成字段代码
+     * @private
+     */
+    _generateFieldCode(field) {
+        const { name, type, typeName, isOptional, defaultValue } = field;
+        const declaration = isOptional ? `  ${name}?: ${typeName};` : `  ${name}: ${typeName} = ${defaultValue};`;
+        return `  @Type(() => ${type})\n  @Transform((params) => params.value ?? ${defaultValue})\n${declaration}`;
+    }
+}
+
+/**
+ * JSON 转 Swift Model 转换器
+ */
+class JsonToSwiftConverter extends JsonConverterBase {
+    /**
+     * 获取 Swift 字段类型信息
+     */
+    _getFieldInfo(value, fieldName) {
+        const typeHandlers = [
+            { check: v => v === null || v === undefined, get: () => ({ type: 'String', defaultValue: '""', jsonMethod: 'stringValue' }) },
+            { check: v => typeof v === 'string', get: () => ({ type: 'String', defaultValue: '""', jsonMethod: 'stringValue' }) },
+            { check: v => typeof v === 'number', get: v => this._getNumberTypeInfo(v) },
+            { check: v => typeof v === 'boolean', get: () => ({ type: 'Bool', defaultValue: 'false', jsonMethod: 'boolValue' }) },
+            { check: v => Array.isArray(v), get: v => this._getArrayTypeInfo(v, fieldName) },
+            { check: v => typeof v === 'object', get: v => this._getObjectTypeInfo(v, fieldName) }
+        ];
+
+        const handler = typeHandlers.find(h => h.check(value));
+        return handler ? handler.get(value) : { type: 'String', defaultValue: '""', jsonMethod: 'stringValue' };
+    }
+
+    /**
+     * 获取数字类型信息
+     * @private
+     */
+    _getNumberTypeInfo(value) {
+        const isInteger = Number.isInteger(value);
+        return {
+            type: isInteger ? 'Int' : 'Double',
+            defaultValue: isInteger ? '0' : '0.0',
+            jsonMethod: isInteger ? 'intValue' : 'doubleValue'
+        };
+    }
+
+    /**
+     * 获取数组类型信息
+     * @private
+     */
+    _getArrayTypeInfo(array, fieldName) {
+        if (array.length === 0) {
+            return { type: '[String]', defaultValue: '[String]()', jsonMethod: 'arrayValue', isArray: true, elementType: 'String', elementJsonMethod: 'stringValue' };
+        }
+
+        const firstElement = array[0];
+
+        if (Array.isArray(firstElement)) {
+            return this._getNestedArrayTypeInfo(firstElement, fieldName);
+        }
+
+        return this._getSimpleArrayTypeInfo(array, firstElement, fieldName);
+    }
+
+    /**
+     * 获取嵌套数组类型信息
+     * @private
+     */
+    _getNestedArrayTypeInfo(nestedArray, fieldName) {
+        if (nestedArray.length === 0) {
+            return { type: '[[String]]', defaultValue: '[[String]]()', jsonMethod: 'arrayValue', isArray: true, elementType: '[String]', elementJsonMethod: 'arrayValue' };
+        }
+
+        const firstElement = nestedArray[0];
+        const elementType = typeof firstElement;
+
+        if (elementType === 'string') {
+            return { type: '[[String]]', defaultValue: '[[String]]()', jsonMethod: 'arrayValue', isArray: true, elementType: '[String]', elementJsonMethod: 'arrayValue' };
+        }
+
+        if (elementType === 'number') {
+            const isInteger = Number.isInteger(firstElement);
+            const type = isInteger ? 'Int' : 'Double';
+            return { type: `[[${type}]]`, defaultValue: `[[${type}]]()`, jsonMethod: 'arrayValue', isArray: true, elementType: `[${type}]`, elementJsonMethod: 'arrayValue' };
+        }
+
+        if (elementType === 'boolean') {
+            return { type: '[[Bool]]', defaultValue: '[[Bool]]()', jsonMethod: 'arrayValue', isArray: true, elementType: '[Bool]', elementJsonMethod: 'arrayValue' };
+        }
+
+        if (elementType === 'object' && firstElement !== null) {
+            const className = this._processObjectArrayAndGetClassName(nestedArray, fieldName);
+            return { type: `[[${className}]]`, defaultValue: `[[${className}]]()`, jsonMethod: 'arrayValue', isArray: true, isObjectArray: true, isNestedArray: true, elementType: className, elementJsonMethod: 'dictionaryValue' };
+        }
+
+        return { type: '[[String]]', defaultValue: '[[String]]()', jsonMethod: 'arrayValue', isArray: true, elementType: '[String]', elementJsonMethod: 'arrayValue' };
+    }
+
+    /**
+     * 获取简单数组类型信息
+     * @private
+     */
+    _getSimpleArrayTypeInfo(array, firstElement, fieldName) {
+        const elementType = typeof firstElement;
+
+        if (elementType === 'string') {
+            return { type: '[String]', defaultValue: '[String]()', jsonMethod: 'arrayValue', isArray: true, elementType: 'String', elementJsonMethod: 'stringValue' };
+        }
+
+        if (elementType === 'number') {
+            const isInteger = Number.isInteger(firstElement);
+            const type = isInteger ? 'Int' : 'Double';
+            return { type: `[${type}]`, defaultValue: `[${type}]()`, jsonMethod: 'arrayValue', isArray: true, elementType: type, elementJsonMethod: isInteger ? 'intValue' : 'doubleValue' };
+        }
+
+        if (elementType === 'boolean') {
+            return { type: '[Bool]', defaultValue: '[Bool]()', jsonMethod: 'arrayValue', isArray: true, elementType: 'Bool', elementJsonMethod: 'boolValue' };
+        }
+
+        if (elementType === 'object' && firstElement !== null) {
+            const className = this._processObjectArrayAndGetClassName(array, fieldName);
+            return { type: `[${className}]`, defaultValue: `[${className}]()`, jsonMethod: 'arrayValue', isArray: true, isObjectArray: true, elementType: className };
+        }
+
+        return { type: '[String]', defaultValue: '[String]()', jsonMethod: 'arrayValue', isArray: true, elementType: 'String', elementJsonMethod: 'stringValue' };
+    }
+
+    /**
+     * 处理对象数组并返回类名
+     * @private
+     */
+    _processObjectArrayAndGetClassName(array, fieldName) {
+        const nestedClassName = this.toPascalCase(fieldName);
+        const arrayClassName = `${nestedClassName}Item`;
+        this.processObjectArray(array, arrayClassName);
+        return arrayClassName;
+    }
+
+    /**
+     * 获取对象类型信息
+     * @private
+     */
+    _getObjectTypeInfo(obj, fieldName) {
+        const nestedClassName = this.toPascalCase(fieldName);
+        this.processObject(obj, nestedClassName);
+        return { type: nestedClassName + '?', defaultValue: null, jsonMethod: 'dictionaryValue', isNestedObject: true, nestedClassName };
+    }
+
+    /**
+     * 生成 Swift 输出
+     */
+    _generateOutput() {
+        const importStatement = "import SwiftyJSON";
+        const classes = this._generateClasses();
+        return { importStatement, classes };
+    }
+
+    /**
+     * 生成类代码列表
+     * @private
+     */
+    _generateClasses() {
+        return [...this.classOrder].reverse().map(className => ({
+            name: className,
+            code: this._generateClassCode(className, this.generatedClasses.get(className))
+        }));
+    }
+
+    /**
+     * 生成单个类的代码
+     * @private
+     */
+    _generateClassCode(className, fields) {
+        const propertyLines = fields.map(f => this._generatePropertyLine(f));
+        const initLines = fields.map(f => this._generateInitLine(f));
+
+        return `struct ${className} {\n${propertyLines.join('')}\n    init() {}\n    \n    init?(json: JSON) {\n        guard json.type == .dictionary else { return nil }\n        \n${initLines.join('')}\n    }\n}\n`;
+    }
+
+    /**
+     * 生成属性行
+     * @private
+     */
+    _generatePropertyLine(field) {
+        const camelCaseName = this.toCamelCase(field.name);
+        return field.defaultValue === null
+            ? `    var ${camelCaseName}: ${field.type}\n`
+            : `    var ${camelCaseName} = ${field.defaultValue}\n`;
+    }
+
+    /**
+     * 生成初始化行
+     * @private
+     */
+    _generateInitLine(field) {
+        const camelCaseName = this.toCamelCase(field.name);
+
+        if (field.isNestedObject) {
+            return `        ${camelCaseName} = ${field.nestedClassName}(json: json["${field.name}"])\n`;
+        }
+
+        if (field.isArray) {
+            return `        ${this._generateArrayInit(field, camelCaseName)}\n`;
+        }
+
+        return `        ${camelCaseName} = json["${field.name}"].${field.jsonMethod}\n`;
     }
 
     /**
      * 生成数组初始化代码
-     * @param {Object} field - 字段信息
-     * @param {string} fieldName - 字段名
-     * @returns {string} - 初始化代码
+     * @private
      */
-    generateArrayInit(field, fieldName) {
+    _generateArrayInit(field, fieldName) {
         if (field.isNestedArray && field.isObjectArray) {
-            // 嵌套对象数组：数组中的对象数组
             return `${fieldName} = json["${field.name}"].arrayValue.map { $0.arrayValue.compactMap { ${field.elementType}(json: $0) } }`;
-        } else if (field.isObjectArray) {
-            // 对象数组
-            return `${fieldName} = json["${field.name}"].arrayValue.compactMap { ${field.elementType}(json: $0) }`;
-        } else {
-            // 基础类型数组
-            return `${fieldName} = json["${field.name}"].arrayValue.map { $0.${field.elementJsonMethod} }`;
         }
-    }
-
-    /**
-     * 生成类的代码
-     * @param {string} className - 类名
-     * @param {Array} fields - 字段列表
-     * @returns {string} - 类代码
-     */
-    generateClassCode(className, fields) {
-        let code = `struct ${className} {\n`;
-
-        // 生成属性定义
-        fields.forEach(field => {
-            const camelCaseName = this.toCamelCase(field.name);
-            // 嵌套对象使用类型声明，其他使用默认值赋值
-            if (field.defaultValue === null) {
-                code += `    var ${camelCaseName}: ${field.type}\n`;
-            } else {
-                code += `    var ${camelCaseName} = ${field.defaultValue}\n`;
-            }
-        });
-
-        code += `    \n`;
-        code += `    init() {}\n`;
-        code += `    \n`;
-        
-        // 生成 SwiftyJSON 初始化方法
-        code += `    init?(json: JSON) {\n`;
-        code += `        guard json.type == .dictionary else {\n`;
-        code += `            return nil\n`;
-        code += `        }\n`;
-        code += `        \n`;
-
-        fields.forEach(field => {
-            const camelCaseName = this.toCamelCase(field.name);
-            
-            if (field.isNestedObject) {
-                // 嵌套对象 - 直接赋值，不使用 if let
-                code += `        ${camelCaseName} = ${field.nestedClassName}(json: json["${field.name}"])\n`;
-            } else if (field.isArray) {
-                // 数组类型
-                code += `        ${this.generateArrayInit(field, camelCaseName)}\n`;
-            } else {
-                // 基础类型
-                code += `        ${camelCaseName} = json["${field.name}"].${field.jsonMethod}\n`;
-            }
-        });
-
-        code += `    }\n`;
-        code += `}\n`;
-        return code;
-    }
-
-    /**
-     * 生成最终代码
-     * @returns {Object} - 包含导入语句和类列表的对象
-     */
-    generateFinalCode() {
-        const importStatement = "import SwiftyJSON";
-        
-        // 按生成顺序的反序输出类（嵌套类在前，根类在后）
-        const reversedOrder = [...this.classOrder].reverse();
-        
-        const classes = reversedOrder.map(className => {
-            const fields = this.generatedClasses.get(className);
-            return {
-                name: className,
-                code: this.generateClassCode(className, fields)
-            };
-        });
-
-        return {
-            importStatement,
-            classes
-        };
+        if (field.isObjectArray) {
+            return `${fieldName} = json["${field.name}"].arrayValue.compactMap { ${field.elementType}(json: $0) }`;
+        }
+        return `${fieldName} = json["${field.name}"].arrayValue.map { $0.${field.elementJsonMethod} }`;
     }
 }
 
-// 导出转换器实例
+// 导出转换器
+window.JsonToArkTSConverter = JsonToArkTSConverter;
 window.JsonToSwiftConverter = JsonToSwiftConverter;
