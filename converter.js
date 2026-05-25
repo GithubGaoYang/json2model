@@ -99,12 +99,49 @@ class JsonConverterBase {
             return className;
         }
 
-        const mergedObj = this._mergeArrayFields(array);
+        // 处理嵌套数组（二维数组），提取所有嵌套数组中的对象
+        const flattenedArray = this._flattenNestedArray(array);
+        
+        const mergedObj = this._mergeArrayFields(flattenedArray);
         const fields = this._extractFields(mergedObj);
         this.generatedClasses.set(className, fields);
         this.classOrder.push(className);
 
         return className;
+    }
+
+    /**
+     * 扁平化嵌套数组，提取所有对象
+     * @private
+     */
+    _flattenNestedArray(array) {
+        if (!Array.isArray(array) || array.length === 0) {
+            return array;
+        }
+
+        const firstElement = array[0];
+        
+        // 如果是对象数组，直接返回
+        if (this._isPlainObject(firstElement)) {
+            return array;
+        }
+        
+        // 如果是嵌套数组（二维数组），递归扁平化
+        if (Array.isArray(firstElement)) {
+            const result = [];
+            array.forEach(subArray => {
+                if (Array.isArray(subArray)) {
+                    subArray.forEach(item => {
+                        if (this._isPlainObject(item)) {
+                            result.push(item);
+                        }
+                    });
+                }
+            });
+            return result;
+        }
+        
+        return array;
     }
 
     /**
@@ -149,12 +186,65 @@ class JsonConverterBase {
                                     const mergedArray = [...existingValue, ...value];
                                     merged[key] = mergedArray;
                                 }
+                                // 如果是嵌套数组（二维数组），扁平化后合并
+                                else if (Array.isArray(firstExisting) && Array.isArray(firstNew)) {
+                                    // 扁平化嵌套数组，提取所有对象
+                                    const flattenedExisting = this._flattenNestedArray(existingValue);
+                                    const flattenedNew = this._flattenNestedArray(value);
+                                    // 检查扁平化后的元素是否都是对象
+                                    if (flattenedExisting.length > 0 && flattenedNew.length > 0 &&
+                                        this._isPlainObject(flattenedExisting[0]) && this._isPlainObject(flattenedNew[0])) {
+                                        merged[key] = [...flattenedExisting, ...flattenedNew];
+                                    } else {
+                                        // 如果不是对象数组，保留第一个数组
+                                        merged[key] = existingValue;
+                                    }
+                                }
                                 // 如果不是对象数组，保留第一个数组
                             }
                         }
-                        // 对于非数组类型，保留第一个遇到的值
+                        // 如果都是对象，递归合并对象字段
+                        else if (this._isPlainObject(existingValue) && this._isPlainObject(value)) {
+                            merged[key] = this._mergeObjects(existingValue, value);
+                        }
+                        // 对于其他非数组类型，保留第一个遇到的值
                     }
                 });
+            }
+        });
+        return merged;
+    }
+
+    /**
+     * 递归合并两个对象的字段
+     * @private
+     */
+    _mergeObjects(obj1, obj2) {
+        const merged = { ...obj1 };
+        Object.keys(obj2).forEach(key => {
+            const value = obj2[key];
+            if (!merged.hasOwnProperty(key)) {
+                merged[key] = value;
+            } else {
+                const existingValue = merged[key];
+                // 递归合并嵌套对象
+                if (this._isPlainObject(existingValue) && this._isPlainObject(value)) {
+                    merged[key] = this._mergeObjects(existingValue, value);
+                }
+                // 合并对象数组
+                else if (Array.isArray(existingValue) && Array.isArray(value)) {
+                    if (existingValue.length === 0 && value.length > 0) {
+                        merged[key] = value;
+                    } else if (existingValue.length > 0 && value.length > 0) {
+                        const firstExisting = existingValue[0];
+                        const firstNew = value[0];
+                        if (this._isPlainObject(firstExisting) && this._isPlainObject(firstNew)) {
+                            merged[key] = [...existingValue, ...value];
+                        } else if (Array.isArray(firstExisting) && Array.isArray(firstNew)) {
+                            merged[key] = [...existingValue, ...value];
+                        }
+                    }
+                }
             }
         });
         return merged;
