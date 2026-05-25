@@ -64,17 +64,8 @@ class JsonConverterBase {
             throw new Error('JSON 对象为空');
         }
 
-        const keys = Object.keys(obj);
-        const firstKey = keys[0];
-        const firstValue = obj[firstKey];
-
-        if (keys.length === 1 && this._isPlainObject(firstValue)) {
-            // 标准情况：{ "User": { ... } }
-            this.processObject(firstValue, 'Root');
-        } else {
-            // 其他情况：直接使用根对象
-            this.processObject(obj, 'Root');
-        }
+        // 直接使用根对象处理，保留嵌套结构
+        this.processObject(obj, 'Root');
     }
 
     /**
