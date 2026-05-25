@@ -139,8 +139,18 @@ class JsonConverterBase {
                             // 如果现有值是空数组，而新值是非空数组，则更新
                             if (existingValue.length === 0 && value.length > 0) {
                                 merged[key] = value;
+                            } else if (existingValue.length > 0 && value.length > 0) {
+                                // 如果都是非空数组，合并数组元素（用于对象数组合并字段）
+                                const firstExisting = existingValue[0];
+                                const firstNew = value[0];
+                                // 检查是否都是对象数组
+                                if (this._isPlainObject(firstExisting) && this._isPlainObject(firstNew)) {
+                                    // 合并两个数组的元素字段
+                                    const mergedArray = [...existingValue, ...value];
+                                    merged[key] = mergedArray;
+                                }
+                                // 如果不是对象数组，保留第一个数组
                             }
-                            // 如果都是非空数组，尝试合并元素类型（后续类型推断会处理）
                         }
                         // 对于非数组类型，保留第一个遇到的值
                     }
