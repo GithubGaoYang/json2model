@@ -9,6 +9,8 @@ new Vue({
         outputClasses: [],
         converting: false,
         settingsDialogVisible: false, // 设置弹窗显示状态
+        // 设置选项
+        autoCamelCase: false, // 自动驼峰命名（仅 Swift 有效）
         // 转换器实例
         arktsConverter: null,
         swiftConverter: null,
@@ -53,6 +55,12 @@ new Vue({
             this.selectedLanguage = storedLanguage;
         }
         
+        // 从本地存储获取自动驼峰设置
+        const storedAutoCamelCase = localStorage.getItem('autoCamelCase');
+        if (storedAutoCamelCase !== null) {
+            this.autoCamelCase = storedAutoCamelCase === 'true';
+        }
+        
         // 初始化转换器
         this.arktsConverter = new JsonToArkTSConverter();
         this.swiftConverter = new JsonToSwiftConverter();
@@ -64,6 +72,10 @@ new Vue({
         // 监听语言选择变化，保存到本地存储
         selectedLanguage(newVal) {
             this.setStoredLanguage(newVal);
+        },
+        // 监听自动驼峰设置变化，保存到本地存储
+        autoCamelCase(newVal) {
+            localStorage.setItem('autoCamelCase', newVal.toString());
         }
     },
     
@@ -149,7 +161,7 @@ new Vue({
                     if (this.selectedLanguage === 'arkts') {
                         result = this.arktsConverter.convert(jsonStr);
                     } else if (this.selectedLanguage === 'swift') {
-                        result = this.swiftConverter.convert(jsonStr);
+                        result = this.swiftConverter.convert(jsonStr, this.autoCamelCase);
                     }
                     
                     // 重置折叠状态

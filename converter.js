@@ -457,6 +457,22 @@ class JsonToArkTSConverter extends JsonConverterBase {
  * JSON 转 Swift Model 转换器
  */
 class JsonToSwiftConverter extends JsonConverterBase {
+    constructor() {
+        super();
+        this.autoCamelCase = false; // 是否自动转为小驼峰命名
+    }
+
+    /**
+     * 转换 JSON 到 Swift Model
+     * @param {string} jsonStr - JSON 字符串
+     * @param {boolean} autoCamelCase - 是否自动转为小驼峰命名
+     * @returns {Object} - 包含导入语句和类列表的对象
+     */
+    convert(jsonStr, autoCamelCase = false) {
+        this.autoCamelCase = autoCamelCase;
+        return super.convert(jsonStr);
+    }
+
     /**
      * 获取 Swift 字段类型信息
      */
@@ -625,10 +641,10 @@ class JsonToSwiftConverter extends JsonConverterBase {
      * @private
      */
     _generatePropertyLine(field) {
-        const camelCaseName = this.toCamelCase(field.name);
+        const fieldName = this.autoCamelCase ? this.toCamelCase(field.name) : field.name;
         return field.defaultValue === null
-            ? `    var ${camelCaseName}: ${field.type}\n`
-            : `    var ${camelCaseName} = ${field.defaultValue}\n`;
+            ? `    var ${fieldName}: ${field.type}\n`
+            : `    var ${fieldName} = ${field.defaultValue}\n`;
     }
 
     /**
@@ -636,17 +652,17 @@ class JsonToSwiftConverter extends JsonConverterBase {
      * @private
      */
     _generateInitLine(field) {
-        const camelCaseName = this.toCamelCase(field.name);
+        const fieldName = this.autoCamelCase ? this.toCamelCase(field.name) : field.name;
 
         if (field.isNestedObject) {
-            return `        ${camelCaseName} = ${field.nestedClassName}(json: json["${field.name}"])\n`;
+            return `        ${fieldName} = ${field.nestedClassName}(json: json["${field.name}"])\n`;
         }
 
         if (field.isArray) {
-            return `        ${this._generateArrayInit(field, camelCaseName)}\n`;
+            return `        ${this._generateArrayInit(field, fieldName)}\n`;
         }
 
-        return `        ${camelCaseName} = json["${field.name}"].${field.jsonMethod}\n`;
+        return `        ${fieldName} = json["${field.name}"].${field.jsonMethod}\n`;
     }
 
     /**
