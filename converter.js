@@ -128,8 +128,21 @@ class JsonConverterBase {
         array.forEach(obj => {
             if (this._isPlainObject(obj)) {
                 Object.keys(obj).forEach(key => {
+                    const value = obj[key];
+                    // 如果字段不存在，直接添加
                     if (!merged.hasOwnProperty(key)) {
-                        merged[key] = obj[key];
+                        merged[key] = value;
+                    } else {
+                        // 如果已存在，优先使用非空数组
+                        const existingValue = merged[key];
+                        if (Array.isArray(existingValue) && Array.isArray(value)) {
+                            // 如果现有值是空数组，而新值是非空数组，则更新
+                            if (existingValue.length === 0 && value.length > 0) {
+                                merged[key] = value;
+                            }
+                            // 如果都是非空数组，尝试合并元素类型（后续类型推断会处理）
+                        }
+                        // 对于非数组类型，保留第一个遇到的值
                     }
                 });
             }
