@@ -170,9 +170,11 @@ class JsonConverterBase {
                     if (!merged.hasOwnProperty(key)) {
                         merged[key] = value;
                     } else {
-                        // 如果已存在，优先使用非空数组
+                        // 如果已存在，优先使用非空值
                         const existingValue = merged[key];
-                        if (Array.isArray(existingValue) && Array.isArray(value)) {
+                        if ((existingValue === null || existingValue === undefined) && value !== null && value !== undefined) {
+                            merged[key] = value;
+                        } else if (Array.isArray(existingValue) && Array.isArray(value)) {
                             // 如果现有值是空数组，而新值是非空数组，则更新
                             if (existingValue.length === 0 && value.length > 0) {
                                 merged[key] = value;
@@ -227,8 +229,11 @@ class JsonConverterBase {
                 merged[key] = value;
             } else {
                 const existingValue = merged[key];
+                if ((existingValue === null || existingValue === undefined) && value !== null && value !== undefined) {
+                    merged[key] = value;
+                }
                 // 递归合并嵌套对象
-                if (this._isPlainObject(existingValue) && this._isPlainObject(value)) {
+                else if (this._isPlainObject(existingValue) && this._isPlainObject(value)) {
                     merged[key] = this._mergeObjects(existingValue, value);
                 }
                 // 合并对象数组
